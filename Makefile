@@ -11,7 +11,7 @@ include .env.local
 export
 endif
 
-.PHONY: up php-rebuild php
+.PHONY: up php-rebuild php phpstan cs-fix rector
 
 up:
 	docker compose up -d
@@ -25,3 +25,12 @@ php-rebuild:
 
 php:
 	docker compose exec php bash
+
+phpstan:
+	docker compose exec php php tools/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist
+
+cs-fix:
+	docker compose exec php php tools/php-cs-fixer/vendor/bin/php-cs-fixer fix
+
+rector:
+	docker compose exec php php tools/rector/vendor/bin/rector process
