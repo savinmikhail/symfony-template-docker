@@ -11,7 +11,7 @@ include .env.local
 export
 endif
 
-.PHONY: up php-rebuild php phpstan cs-fix rector
+.PHONY: up php-rebuild php phpstan cs-fix rector k6
 
 up:
 	docker compose up -d
@@ -34,3 +34,6 @@ cs-fix:
 
 rector:
 	docker compose exec php php tools/rector/vendor/bin/rector process
+
+k6:
+	docker compose run --rm k6

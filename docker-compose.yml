@@ -176,6 +176,15 @@ services:
     depends_on:
       - loki
 
+  k6:
+    image: grafana/k6:latest
+    container_name: symfony_k6
+    command: ["run", "/scripts/load.js"]
+    volumes:
+      - ./docker/k6:/scripts:ro
+    depends_on:
+      - nginx
+
 volumes:
   db-data:
   loki-data:
