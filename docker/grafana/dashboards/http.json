@@ -42,19 +42,19 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "quantile_over_time(0.5, {service=\"nginx\"} | json | unwrap request_time [5m])",
+          "expr": "max(quantile_over_time(0.5, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p50"
         },
         {
           "refId": "B",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "quantile_over_time(0.95, {service=\"nginx\"} | json | unwrap request_time [5m])",
+          "expr": "max(quantile_over_time(0.95, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p95"
         },
         {
           "refId": "C",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "quantile_over_time(0.99, {service=\"nginx\"} | json | unwrap request_time [5m])",
+          "expr": "max(quantile_over_time(0.99, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p99"
         }
       ],
@@ -114,4 +114,3 @@
     }
   ]
 }
-
