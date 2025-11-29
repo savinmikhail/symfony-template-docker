@@ -34,19 +34,10 @@ RUN chmod +x /usr/local/bin/install-php-extensions && \
 # Copy Composer binary from official image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Common PHP configuration (can be overridden in child stages)
-RUN { \
-        echo "memory_limit=512M"; \
-        echo "upload_max_filesize=16M"; \
-        echo "post_max_size=16M"; \
-        echo "date.timezone=UTC"; \
-        echo "opcache.enable=1"; \
-        echo "opcache.enable_cli=1"; \
-        echo "opcache.preload_user=www-data"; \
-        echo "opcache.interned_strings_buffer=16"; \
-        echo "opcache.max_accelerated_files=20000"; \
-        echo "opcache.validate_timestamps=0"; \
-    } > /usr/local/etc/php/conf.d/symfony.ini
+# Default PHP-FPM configuration (can be overridden with volumes)
+COPY docker/php/conf/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/conf/php-fpm.conf /usr/local/etc/php-fpm.conf
+COPY docker/php/conf/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 
 # === Development image ===
@@ -96,4 +87,3 @@ ENV APP_ENV=prod \
 COPY --from=build /var/www/app /var/www/app
 
 CMD ["php-fpm"]
-

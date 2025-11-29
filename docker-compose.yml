@@ -21,6 +21,10 @@ services:
         postgresql://app:app@db:5432/app?serverVersion=16&charset=utf8
     volumes:
       - ./app:/var/www/app:rw,delegated
+      - ./docker/php/conf/php.ini:/usr/local/etc/php/conf.d/zz-app.ini:ro
+      - ./docker/php/conf/xdebug.ini:/usr/local/etc/php/conf.d/zz-xdebug.ini:ro
+      - ./docker/php/conf/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
+      - ./docker/php/conf/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     depends_on:
       - db
 
