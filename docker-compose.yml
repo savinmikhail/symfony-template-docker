@@ -5,6 +5,7 @@
 #
 # Production image example:
 #   docker build -f docker/php/Dockerfile --target prod -t my-symfony-app .
+# @see https://github.com/mfvanek/useful-sql-scripts/tree/915b5f4a62db14307175af98ddad671d3bbc8484/running_pg_in_docker/5.1.%20Tuning%20parameters%20via%20file
 
 services:
   php:
