@@ -24,7 +24,8 @@ class ProductController extends AbstractController
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(
         ProductRepository $repository,
-        #[Autowire(service: 'cache.products')] CacheInterface $cache,
+        #[Autowire(service: 'cache.products')]
+        CacheInterface $cache,
     ): JsonResponse {
         $this->simulateLatencyAndFailures();
 
