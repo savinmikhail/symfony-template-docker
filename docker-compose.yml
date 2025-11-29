@@ -46,6 +46,10 @@ services:
       - "${APP_DB_PORT:-5432}:5432"
     volumes:
       - db-data:/var/lib/postgresql/data:rw
+       # clean tuned config loaded via command
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: >
+      postgres -c config_file=/etc/postgresql/postgresql.conf
 
   redis:
     image: redis:7-alpine
