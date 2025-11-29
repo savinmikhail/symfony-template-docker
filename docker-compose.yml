@@ -53,5 +53,27 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data:rw
 
+  redis:
+    image: redis:7-alpine
+    container_name: symfony_redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory ${APP_REDIS_MEMORY_LIMIT:-512mb}
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${APP_REDIS_PORT:-6379}:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: symfony_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "${APP_RABBITMQ_PORT:-5672}:5672"
+      - "${APP_RABBITMQ_MGMT_PORT:-15672}:15672"
+
 volumes:
   db-data:
