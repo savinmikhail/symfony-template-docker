@@ -19,7 +19,9 @@ RUN apk add --no-cache \
     tzdata \
     curl \
     zip \
-    unzip
+    unzip \
+ && mkdir -p /var/www/app \
+ && chown -R www-data:www-data /var/www/app
 
 # Use mlocati/docker-php-extension-installer to install PHP extensions
 COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
@@ -48,6 +50,8 @@ ENV APP_ENV=dev \
 
 # Helpful dev extensions/tools (xdebug etc.)
 RUN install-php-extensions xdebug
+
+USER www-data
 
 # By default we expect project code to be mounted as a volume
 CMD ["php-fpm"]
@@ -85,5 +89,9 @@ ENV APP_ENV=prod \
     APP_DEBUG=0
 
 COPY --from=build /var/www/app /var/www/app
+
+RUN chown -R www-data:www-data /var/www/app
+
+USER www-data
 
 CMD ["php-fpm"]

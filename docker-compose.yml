@@ -33,8 +33,9 @@ services:
     container_name: symfony_nginx
     depends_on:
       - php
+    user: "nginx"
     ports:
-      - "${APP_HTTP_PORT:-8080}:80"
+      - "${APP_HTTP_PORT:-8080}:8080"
     volumes:
       - ./app/public:/var/www/app/public:ro
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
