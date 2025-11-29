@@ -31,7 +31,6 @@ services:
     restart: unless-stopped
     depends_on:
       - php
-    user: "nginx"
     ports:
       - "${APP_HTTP_PORT:-8080}:8080"
     volumes:
@@ -177,6 +176,8 @@ services:
       - loki
 
   k6:
+    profiles:
+      - k6
     image: grafana/k6:latest
     container_name: symfony_k6
     command: ["run", "/scripts/load.js"]
