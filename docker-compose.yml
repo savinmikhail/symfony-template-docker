@@ -13,12 +13,6 @@ services:
       dockerfile: docker/php/Dockerfile
       target: dev
     container_name: symfony_php
-    working_dir: /var/www/app
-    environment:
-      APP_ENV: dev
-      APP_DEBUG: 1
-      DATABASE_URL: >-
-        postgresql://app:app@db:5432/app?serverVersion=16&charset=utf8
     volumes:
       - ./app:/var/www/app:rw,delegated
       - ./docker/php/conf/php.ini:/usr/local/etc/php/conf.d/zz-app.ini:ro
