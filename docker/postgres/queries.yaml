@@ -1,0 +1,42 @@
+pg_stat_database:
+  query: |
+    SELECT
+      datname,
+      numbackends,
+      xact_commit,
+      xact_rollback,
+      blks_read,
+      blks_hit,
+      deadlocks,
+      temp_files,
+      temp_bytes
+    FROM pg_stat_database;
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Name of the database"
+    - numbackends:
+        usage: "GAUGE"
+        description: "Number of active connections"
+    - xact_commit:
+        usage: "COUNTER"
+        description: "Transactions committed"
+    - xact_rollback:
+        usage: "COUNTER"
+        description: "Transactions rolled back"
+    - blks_read:
+        usage: "COUNTER"
+        description: "Blocks read from disk"
+    - blks_hit:
+        usage: "COUNTER"
+        description: "Buffer hits"
+    - deadlocks:
+        usage: "COUNTER"
+        description: "Deadlocks detected"
+    - temp_files:
+        usage: "COUNTER"
+        description: "Temporary files created"
+    - temp_bytes:
+        usage: "COUNTER"
+        description: "Bytes written to temporary files"
+
