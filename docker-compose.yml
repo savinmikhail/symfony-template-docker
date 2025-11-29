@@ -127,6 +127,17 @@ services:
     depends_on:
       - rabbitmq
 
+  php-fpm-exporter:
+    image: hipages/php-fpm_exporter:latest
+    container_name: symfony_php_fpm_exporter
+    restart: unless-stopped
+    command:
+      - "--phpfpm.scrape-uri=tcp://php:9000/fpm-status"
+    ports:
+      - "${APP_PHP_FPM_EXPORTER_PORT:-9253}:9253"
+    depends_on:
+      - php
+
   prometheus:
     image: prom/prometheus:latest
     container_name: symfony_prometheus
