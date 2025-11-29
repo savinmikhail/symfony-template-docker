@@ -31,7 +31,8 @@ RUN chmod +x /usr/local/bin/install-php-extensions && \
         intl \
         opcache \
         pdo_pgsql \
-        zip
+        zip \
+        redis
 
 # Copy Composer binary from official image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
