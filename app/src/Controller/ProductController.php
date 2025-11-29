@@ -24,7 +24,6 @@ class ProductController extends AbstractController
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(
         ProductRepository $repository,
-        #[Autowire(service: 'cache.products')]
         CacheInterface $cache,
     ): JsonResponse {
         $this->simulateLatencyAndFailures();
@@ -89,6 +88,12 @@ class ProductController extends AbstractController
 
     private function simulateLatencyAndFailures(): void
     {
+        $appEnv = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null;
+
+        if ($appEnv === 'test') {
+            return;
+        }
+
         $roll = random_int(1, 100);
 
         if ($roll <= 5) {

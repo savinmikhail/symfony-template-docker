@@ -1,10 +1,12 @@
 framework:
     cache:
-        # Unique name of your app: used to compute stable namespaces for cache keys.
-        #prefix_seed: your_vendor_name/app_name
+        prefix_seed: symfony/template
 
-        # Dedicated Redis-backed cache pool for application data
-        pools:
-            products:
-                adapter: cache.adapter.redis
-                provider: 'redis://redis:6379'
+        app: cache.adapter.redis
+        system: cache.adapter.system
+        default_redis_provider: '%env(resolve:REDIS_URL)%'
+
+when@test:
+    framework:
+        cache:
+            app: cache.adapter.system
