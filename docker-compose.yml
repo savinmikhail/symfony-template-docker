@@ -91,6 +91,17 @@ services:
     ports:
       - "${APP_REDIS_PORT:-6379}:6379"
 
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: symfony_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis:6379"
+    ports:
+      - "${APP_REDIS_EXPORTER_PORT:-9121}:9121"
+    depends_on:
+      - redis
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: symfony_rabbitmq
