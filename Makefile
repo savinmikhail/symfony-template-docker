@@ -17,6 +17,7 @@ up:
 	docker compose up -d
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
+	make dmm
 
 php-rebuild:
 	docker compose up -d --no-deps --build php
@@ -40,3 +41,6 @@ k6:
 
 worker:
 	docker compose exec php php bin/console messenger:consume async -vv
+
+dmm:
+	docker compose exec php php bin/console doctrine:migration:migrate -n

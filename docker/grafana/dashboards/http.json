@@ -19,7 +19,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "rate({service=\"nginx\"}[1m])"
+          "expr": "sum(rate({service=\"nginx\"}[1m]))"
         }
       ],
       "fieldConfig": {
@@ -42,19 +42,19 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.5, {service=\"nginx\"} | json | unwrap request_time [30m]))",
+          "expr": "avg(quantile_over_time(0.5, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p50"
         },
         {
           "refId": "B",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.95, {service=\"nginx\"} | json | unwrap request_time [30m]))",
+          "expr": "avg(quantile_over_time(0.95, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p95"
         },
         {
           "refId": "C",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.99, {service=\"nginx\"} | json | unwrap request_time [30m]))",
+          "expr": "avg(quantile_over_time(0.99, {service=\"nginx\"} | json | unwrap request_time [5m]))",
           "legendFormat": "p99"
         }
       ],
@@ -85,7 +85,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "count_over_time({service=\"nginx\"} | json | status >= 500 and status < 600 [30m])"
+          "expr": "count_over_time({service=\"nginx\"} | json | status >= 500 and status < 600 [5m])"
         }
       ],
       "fieldConfig": {
