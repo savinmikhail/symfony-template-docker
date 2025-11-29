@@ -114,6 +114,19 @@ services:
       - "${APP_RABBITMQ_PORT:-5672}:5672"
       - "${APP_RABBITMQ_MGMT_PORT:-15672}:15672"
 
+  rabbitmq-exporter:
+    image: kbudde/rabbitmq-exporter
+    container_name: symfony_rabbitmq_exporter
+    restart: unless-stopped
+    environment:
+      RABBIT_URL: "http://rabbitmq:15672"
+      RABBIT_USER: "app"
+      RABBIT_PASSWORD: "app"
+    ports:
+      - "${APP_RABBITMQ_EXPORTER_PORT:-9419}:9419"
+    depends_on:
+      - rabbitmq
+
   prometheus:
     image: prom/prometheus:latest
     container_name: symfony_prometheus
