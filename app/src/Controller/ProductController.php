@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\Product;
+use App\Message\ProductCreatedMessage;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[Route('/products', name: 'product_')]
 class ProductController extends AbstractController
@@ -55,7 +57,7 @@ class ProductController extends AbstractController
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
-    public function create(Request $request, EntityManagerInterface $em): JsonResponse
+    public function create(Request $request, EntityManagerInterface $em, MessageBusInterface $bus): JsonResponse
     {
         $this->simulateLatencyAndFailures();
 
@@ -69,6 +71,8 @@ class ProductController extends AbstractController
 
         $em->persist($product);
         $em->flush();
+
+        $bus->dispatch(new ProductCreatedMessage($product->getId(), $product->getName(), $product->getPrice()));
 
         return $this->json(
             [

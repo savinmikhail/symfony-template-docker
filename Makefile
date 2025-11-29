@@ -37,3 +37,6 @@ rector:
 
 k6:
 	docker compose run --rm k6
+
+worker:
+	docker compose exec php php bin/console messenger:consume async -vv

@@ -37,6 +37,9 @@ framework:
             scheduler_default:
                 dsn: 'doctrine://default'
 
+        routing:
+            App\Message\ProductCreatedMessage: async
+
 when@test:
     framework:
         messenger:
