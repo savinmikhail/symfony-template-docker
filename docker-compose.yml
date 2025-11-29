@@ -153,5 +153,28 @@ services:
     depends_on:
       - prometheus
 
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: symfony_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "${APP_LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./docker/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: symfony_promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/promtail/config.yml:/etc/promtail/config.yml:ro
+    depends_on:
+      - loki
+
 volumes:
   db-data:
+  loki-data:
