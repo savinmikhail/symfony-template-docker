@@ -20,7 +20,8 @@ services:
       - ./docker/php/conf/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
       - ./docker/php/conf/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   nginx:
     image: nginx:1.27-alpine
@@ -50,6 +51,12 @@ services:
       - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     command: >
       postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
