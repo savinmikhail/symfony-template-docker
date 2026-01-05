@@ -36,25 +36,19 @@
     },
     {
       "type": "timeseries",
-      "title": "Latency (p50 / p95 / p99)",
+      "title": "Latency (p50 / p99)",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.5, {service=\"nginx\"} | json | unwrap request_time [5m]))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.5, sum(rate(promtail_custom_nginx_request_time_seconds_bucket[1m])) by (le))",
           "legendFormat": "p50"
         },
         {
           "refId": "B",
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.95, {service=\"nginx\"} | json | unwrap request_time [5m]))",
-          "legendFormat": "p95"
-        },
-        {
-          "refId": "C",
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "avg(quantile_over_time(0.99, {service=\"nginx\"} | json | unwrap request_time [5m]))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.99, sum(rate(promtail_custom_nginx_request_time_seconds_bucket[1m])) by (le))",
           "legendFormat": "p99"
         }
       ],

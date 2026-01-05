@@ -210,6 +210,7 @@ Scrape configs in `docker/prometheus/prometheus.yml`:
 - PostgreSQL exporter (`postgres-exporter:9187`)
 - Redis exporter (`redis-exporter:9121`)
 - RabbitMQ exporter (`rabbitmq-exporter:9419`)
+- Promtail metrics (nginx request time histogram) (`promtail:9080`)
 
 ### Dashboards (Grafana)
 
@@ -356,4 +357,3 @@ You are expected to:
 - Extend Grafana dashboards and alerting rules for your use‑cases.
 
 Use this as a starting point for new Symfony API projects with Docker‑first, observability‑ready setup.
-
