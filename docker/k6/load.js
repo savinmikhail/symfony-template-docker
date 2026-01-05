@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 
 export const options = {
   vus: 100,
-  duration: '30s',
+  duration: '300s',
 };
 
 const BASE_URL = __ENV.BASE_URL || 'http://nginx:8080';
