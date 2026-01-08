@@ -79,7 +79,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum(count_over_time({service=\"nginx\"} | json | status >= 500 and status < 600 [1m]))"
+          "expr": "sum(count_over_time({service=\"nginx\"} | json | __error__=\"\" | status >= 500 and status < 600 [1m]))"
         }
       ],
       "fieldConfig": {
