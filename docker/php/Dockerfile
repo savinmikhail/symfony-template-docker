@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM php:8.4-fpm-alpine AS php-base
+FROM php:8.4-fpm AS php-base
 
 LABEL org.opencontainers.image.source="symfony-template-docker" \
       org.opencontainers.image.description="PHP-FPM 8.4 for Symfony applications" \
@@ -9,17 +9,15 @@ LABEL org.opencontainers.image.source="symfony-template-docker" \
 WORKDIR /var/www/app
 
 # System dependencies
-RUN apk add --no-cache \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
     bash \
     git \
-    icu-dev \
-    libpq-dev \
-    libzip-dev \
-    oniguruma-dev \
     tzdata \
     curl \
     zip \
     unzip \
+ && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/www/app \
  && chown -R www-data:www-data /var/www/app
 
