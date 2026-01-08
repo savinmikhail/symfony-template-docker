@@ -92,7 +92,7 @@ services:
       - "${APP_REDIS_PORT:-6379}:6379"
 
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.63.0
     container_name: symfony_redis_exporter
     restart: unless-stopped
     environment:
@@ -115,7 +115,7 @@ services:
       - "${APP_RABBITMQ_MGMT_PORT:-15672}:15672"
 
   rabbitmq-exporter:
-    image: kbudde/rabbitmq-exporter
+    image: kbudde/rabbitmq-exporter:1.0.0
     container_name: symfony_rabbitmq_exporter
     restart: unless-stopped
     environment:
@@ -128,7 +128,7 @@ services:
       - rabbitmq
 
   php-fpm-exporter:
-    image: hipages/php-fpm_exporter:latest
+    image: hipages/php-fpm_exporter:2.2.0
     container_name: symfony_php_fpm_exporter
     restart: unless-stopped
     command:
@@ -139,7 +139,7 @@ services:
       - php
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.1
     container_name: symfony_prometheus
     restart: unless-stopped
     volumes:
@@ -148,9 +148,13 @@ services:
       - "${APP_PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - postgres-exporter
+      - redis-exporter
+      - rabbitmq-exporter
+      - php-fpm-exporter
+      - promtail
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.2.0
     container_name: symfony_grafana
     restart: unless-stopped
     ports:
@@ -163,6 +167,7 @@ services:
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
 
   loki:
     image: grafana/loki:2.9.8
@@ -189,7 +194,7 @@ services:
   k6:
     profiles:
       - k6
-    image: grafana/k6:latest
+    image: grafana/k6:0.54.0
     container_name: symfony_k6
     command: ["run", "/scripts/load.js"]
     volumes:
