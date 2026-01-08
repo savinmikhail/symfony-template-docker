@@ -74,7 +74,7 @@
     {
       "type": "timeseries",
       "title": "HTTP 5xx per minute",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 8 },
       "targets": [
         {
           "refId": "A",
@@ -90,6 +90,38 @@
             "steps": [
               { "color": "green", "value": null },
               { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "hidden" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx Error Rate (%)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "100 * (sum(rate({service=\"nginx\"} | json | __error__=\"\" | status >= 500 and status < 600 [5m])) / sum(rate({service=\"nginx\"}[5m])))",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
             ]
           }
         },
