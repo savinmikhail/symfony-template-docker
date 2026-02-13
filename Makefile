@@ -15,9 +15,9 @@ endif
 
 up:
 	docker compose up -d
+	make dmm
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
-	make dmm
 
 php-rebuild:
 	docker compose up -d --no-deps --build php

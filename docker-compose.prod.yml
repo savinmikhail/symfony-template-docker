@@ -1,0 +1,5 @@
+# Production overrides
+services:
+  php:
+    build:
+      target: prod
