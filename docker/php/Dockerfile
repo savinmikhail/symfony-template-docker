@@ -2,10 +2,6 @@
 
 FROM php:8.4-fpm AS php-base
 
-LABEL org.opencontainers.image.source="symfony-template-docker" \
-      org.opencontainers.image.description="PHP-FPM 8.4 for Symfony applications" \
-      org.opencontainers.image.licenses="MIT"
-
 WORKDIR /var/www/app
 
 # System dependencies
