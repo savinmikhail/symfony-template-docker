@@ -51,6 +51,8 @@ Defined in `docker-compose.yml`:
 - `php` – PHP 8.4 FPM (Alpine)
   - Built from `docker/php/Dockerfile`
   - Uses `install-php-extensions` (intl, opcache, pdo_pgsql, zip, xdebug in dev)
+  - Dev image remaps `www-data` to `HOST_UID/HOST_GID` from the host
+  - Keeps bind-mounted files like `app/vendor` writable on the host
   - Runs as `www-data`, working dir `/var/www/app`
   - Mounts `./app` as project root
 - `nginx` – Nginx 1.27 (Alpine)
@@ -277,6 +279,7 @@ From the repository root:
 
 - Start stack:
   - `make up`
+  - Rebuilds PHP with your host UID/GID, installs Composer dependencies, applies migrations
   - App URL is printed (uses `APP_HTTP_PORT` from `.env`)
 - Rebuild only PHP container:
   - `make php-rebuild`
@@ -317,7 +320,9 @@ Steps:
    make up
    ```
 
-3. Apply database migrations:
+   This rebuilds the PHP container with your host UID/GID, runs `composer install`, and applies database migrations.
+
+3. If you need to re-run migrations manually:
 
    ```bash
    make php

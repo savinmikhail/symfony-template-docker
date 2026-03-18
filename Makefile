@@ -1,5 +1,10 @@
 SHELL := /bin/sh
 
+HOST_UID ?= $(shell id -u)
+HOST_GID ?= $(shell id -g)
+export HOST_UID
+export HOST_GID
+
 # Загружаем переменные из .env и .env.local (локальный имеет приоритет)
 ifneq (,$(wildcard .env))
 include .env
@@ -11,13 +16,17 @@ include .env.local
 export
 endif
 
-.PHONY: up php-rebuild php phpstan cs-fix rector k6
+.PHONY: up composer-install php-rebuild php phpstan cs-fix rector k6 worker dmm
 
 up:
-	docker compose up -d
-	make dmm
+	docker compose up -d --build
+	$(MAKE) composer-install
+	$(MAKE) dmm
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
+
+composer-install:
+	docker compose exec -T php composer install --no-interaction --prefer-dist
 
 php-rebuild:
 	docker compose up -d --no-deps --build php
