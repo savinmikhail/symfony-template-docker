@@ -1,13 +1,13 @@
 # Production overrides
 services:
   php:
-    image: ${APP_NAME:-symfony-template-docker}-php:prod
+    image: ${APP_NAME:-platform}-php:prod
     build:
       target: prod
     volumes: !reset []
 
   nginx:
-    image: ${APP_NAME:-symfony-template-docker}-nginx:prod
+    image: ${APP_NAME:-platform}-nginx:prod
     build:
       context: .
       dockerfile: docker/nginx/Dockerfile
