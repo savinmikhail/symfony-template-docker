@@ -1,4 +1,18 @@
-я хочу создать шаблон для symfony проектов. проект должен подниматься через docker. связка php8.4, php-fpm, nginx, postgresql
+# Repository Guidelines
 
-официальный шаблон использует альтернативный рантайм и часто неудобен ввиду этого: https://github.com/dunglas/symfony-docker
+## Project Structure
+- `app/`: Symfony backend.
+- `docs/`: deployment notes, runbooks, and project documentation.
+- `docker/` + `docker-compose.yml`: local and production-like infrastructure.
+- `.github/`: CI/CD and deployment workflows.
 
+## Working Style
+- Use `Makefile` commands as the default entrypoint for build, test, and quality tasks.
+- Follow Conventional Commit style: `feat: ...`, `fix: ...`, `chore: ...`.
+- Keep commits atomic and scoped to one logical change.
+- Store secrets in `app/.env.local`; never commit real credentials.
+- Run repository checks sequentially when they touch shared Docker services or the same database/container state.
+
+## Local Instructions
+- Backend-specific guidance lives in [app/AGENTS.md](/home/mikhail/projects/symfony-template-docker/app/AGENTS.md).
+- Backend module overviews live in `app/src/*/README.md`; start from [app/AGENTS.md](/home/mikhail/projects/symfony-template-docker/app/AGENTS.md) for the index.
