@@ -1,5 +1,15 @@
 # Production overrides
 services:
   php:
+    image: ${APP_NAME:-symfony-template-docker}-php:prod
     build:
       target: prod
+    volumes: !reset []
+
+  nginx:
+    image: ${APP_NAME:-symfony-template-docker}-nginx:prod
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+      target: prod
+    volumes: !reset []

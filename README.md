@@ -38,7 +38,9 @@ The goal is to provide a **production‑like environment** for local development
   - `promtail/` – Promtail configuration for Docker log scraping
   - `k6/load.js` – k6 load script for `/products` API
 - `docker-compose.yml` – all services (application + infra)
+- `docker-compose.prod.yml` – production overrides for immutable runtime containers
 - `Makefile` – helper commands for running the stack and tools
+- `docs/deploy.md` – tag-based deployment and rollback workflow
 - `.env` – root env vars (ports, resource sizes, etc.)
 - `app/.env` – Symfony app env (DB & Messenger DSNs)
 
@@ -199,6 +201,15 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - Config: `app/phpunit.dist.xml`.
 - Run inside PHP container:
   - `make php` → `php bin/phpunit`
+
+---
+
+## Production deploy
+
+- Use `make up-prod` for local verification of the production stack.
+- Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.
+- GitHub Actions deploys are tag-based and include a separate rollback workflow.
+- Details: [docs/deploy.md](/home/mikhail/projects/symfony-template-docker/docs/deploy.md)
 
 ---
 

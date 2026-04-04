@@ -1,0 +1,52 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      current_tag:
+        description: Currently deployed tag
+        required: true
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -T 10 -p "${{ secrets.DEPLOY_PORT || '22' }}" "${{ secrets.DEPLOY_HOST }}" > ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/known_hosts | awk '{print $2}' | grep -Fx "${{ secrets.DEPLOY_HOST_FINGERPRINT }}"
+
+      - name: Roll back to previous tag over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          CURRENT_TAG: ${{ inputs.current_tag }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" <<EOF
+          set -eu
+          cd "${DEPLOY_PATH}"
+          git fetch --all --prune --tags
+          PREVIOUS_TAG="\$(git tag --sort=-creatordate | awk -v current=\"${CURRENT_TAG}\" '\$0 == current { getline; print; exit }')"
+
+          if [ -z "\${PREVIOUS_TAG}" ]; then
+            echo "Unable to resolve previous tag for ${CURRENT_TAG}" >&2
+            exit 1
+          fi
+
+          echo "Rolling back from ${CURRENT_TAG} to \${PREVIOUS_TAG}"
+          git rev-parse "refs/tags/\${PREVIOUS_TAG}" >/dev/null
+          git checkout --detach "\${PREVIOUS_TAG}"
+          make up-prod
+          EOF
