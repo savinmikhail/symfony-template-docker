@@ -14,5 +14,5 @@
 - Run repository checks sequentially when they touch shared Docker services or the same database/container state.
 
 ## Local Instructions
-- Backend-specific guidance lives in [app/AGENTS.md](/home/mikhail/projects/symfony-template-docker/app/AGENTS.md).
-- Backend module overviews live in `app/src/*/README.md`; start from [app/AGENTS.md](/home/mikhail/projects/symfony-template-docker/app/AGENTS.md) for the index.
+- Backend-specific guidance lives in [app/AGENTS.md](app/AGENTS.md).
+- Backend module overviews live in `app/src/*/README.md`; start from [app/AGENTS.md](app/AGENTS.md) for the index.
