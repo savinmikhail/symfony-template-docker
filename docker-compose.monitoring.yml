@@ -51,6 +51,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/wget -q -O /dev/null http://127.0.0.1:9187/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis-exporter:
     <<: *security-defaults
@@ -62,6 +68,12 @@ services:
       - "127.0.0.1:${APP_REDIS_EXPORTER_PORT:-9121}:9121"
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD", "/redis_exporter", "-version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   rabbitmq-exporter:
     <<: *security-defaults
@@ -75,6 +87,12 @@ services:
       - "127.0.0.1:${APP_RABBITMQ_EXPORTER_PORT:-9419}:9419"
     depends_on:
       - rabbitmq
+    healthcheck:
+      test: ["CMD", "/rabbitmq_exporter", "-check-url", "http://127.0.0.1:9419/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   php-fpm-exporter:
     <<: *security-defaults
@@ -86,6 +104,12 @@ services:
       - "127.0.0.1:${APP_PHP_FPM_EXPORTER_PORT:-9253}:9253"
     depends_on:
       - php
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9253/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   prometheus:
     <<: *security-defaults
@@ -100,6 +124,12 @@ services:
       - redis-exporter
       - rabbitmq-exporter
       - php-fpm-exporter
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/wget -q -O /dev/null http://127.0.0.1:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   grafana:
     <<: *security-defaults
@@ -116,6 +146,12 @@ services:
     depends_on:
       - prometheus
       - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   loki:
     <<: *security-defaults
@@ -127,6 +163,12 @@ services:
     volumes:
       - ./docker/loki/config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   loki-data:
