@@ -235,6 +235,7 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - Use `make up-prod` for local verification of the production stack.
 - Use `make up-monitoring` only when the observability stack is actually needed.
 - `make up-prod` fails fast if committed placeholder secrets were not overridden before a production start.
+- `make gen-secrets` prints a ready-to-paste `.env.local` block with URL-safe secrets.
 - `make kics` / `make kics-high` run the high-signal KICS infrastructure scan mirrored by the GitHub Actions workflow.
 - `make kics-full` expands the scan to include medium findings such as missing cpu/ram limits.
 - Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.

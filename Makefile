@@ -7,6 +7,10 @@ KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a70
 KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
 KICS_HIGH_EXCLUDE_SEVERITIES ?= info,trace,low,medium
 KICS_FULL_EXCLUDE_SEVERITIES ?= info,trace
+SECRET_LENGTH ?= 32
+APP_SECRET_LENGTH ?= 64
+GEN_SECRETS_SCRIPT := ./docker/generate-secrets.sh
+GEN_SECRETS_VARS := POSTGRES_PASSWORD RABBITMQ_DEFAULT_PASS APP_GRAFANA_ADMIN_PASSWORD APP_SECRET
 
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
@@ -24,7 +28,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset
 
 up:
 	docker compose up -d --build
@@ -92,6 +96,9 @@ cs-fix:
 
 rector:
 	docker compose exec php php tools/rector/vendor/bin/rector process
+
+gen-secrets:
+	@SECRET_LENGTH=$(SECRET_LENGTH) APP_SECRET_LENGTH=$(APP_SECRET_LENGTH) $(GEN_SECRETS_SCRIPT) $(GEN_SECRETS_VARS)
 
 kics:
 	$(MAKE) kics-high
