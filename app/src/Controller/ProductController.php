@@ -107,6 +107,9 @@ class ProductController extends AbstractController
         }
     }
 
+    /**
+     * @return array{id: int|null, name: string, price: string, createdAt: string, updatedAt: string|null}
+     */
     private function normalizeProduct(Product $product): array
     {
         return [

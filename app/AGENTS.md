@@ -20,10 +20,13 @@
 - Framework: PHPUnit 12 via `app/phpunit.dist.xml`.
 - For API or flow changes, add or update feature tests.
 - Run Docker-backed tests sequentially; avoid parallel runs that share the same containers or database state.
+- Architecture rules run through PHPat on top of PHPStan; keep module-boundary checks in `tests/Architecture`.
 
 ## Quality
 - Relevant commands are available through `make`, including:
 - `make phpstan`
+- `make phpat`
+- `make dep-analyse`
 - `make cs-fix`
 - `make rector`
 
