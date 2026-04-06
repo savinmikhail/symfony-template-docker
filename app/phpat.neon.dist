@@ -1,0 +1,14 @@
+includes:
+  - phpstan.neon.dist
+  - tools/phpat/vendor/phpat/phpat/extension.neon
+
+parameters:
+  phpat:
+    ignore_built_in_classes: true
+    show_rule_names: true
+
+services:
+  -
+    class: App\Tests\Architecture\ModuleBoundariesTest
+    tags:
+      - phpat.test

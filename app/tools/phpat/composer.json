@@ -1,0 +1,6 @@
+{
+    "require-dev": {
+        "phpstan/phpstan": "^2.1",
+        "phpat/phpat": "^0.12.4"
+    }
+}
