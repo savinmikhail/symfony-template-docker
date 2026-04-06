@@ -61,12 +61,13 @@ Before the first deploy:
 
 Production note:
 
-- keep `POSTGRES_PASSWORD`, `DATABASE_URL`, `RABBITMQ_DEFAULT_PASS` and `MESSENGER_TRANSPORT_DSN` overridden outside the committed `.env`
+- keep `POSTGRES_PASSWORD` and `RABBITMQ_DEFAULT_PASS` overridden outside the committed `.env`
 - `make up-prod` fails fast if those vars still use committed placeholders/defaults
 - `make up-monitoring` fails fast if `APP_GRAFANA_ADMIN_PASSWORD` still uses a committed placeholder/default
 - `make up-monitoring` also requires the Docker Loki logging driver plugin (`loki`) to be installed on the host
 - `docker-compose.prod.yml` resets `db.ports`, so PostgreSQL is not published on the host in production
 - Redis, RabbitMQ and monitoring/admin ports are bound to `127.0.0.1` and should be published externally only through a host-level reverse proxy if needed
+- app-level DSNs are assembled inside [app/.env](/home/mikhail/projects/symfony-template-docker/app/.env) from the container env, so they do not need a separate production override
 
 ## Notes
 

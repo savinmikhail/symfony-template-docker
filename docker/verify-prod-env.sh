@@ -23,31 +23,10 @@ require_secret() {
   esac
 }
 
-require_dsn() {
-  var_name=$1
-  insecure_fragment=$2
-  eval "value=\${$var_name-}"
-
-  if [ -z "${value}" ]; then
-    echo "Missing required production env: ${var_name}" >&2
-    failed=1
-    return
-  fi
-
-  case "${value}" in
-    *change-me-in-.env.local*|*local-db-password-change-me*|*local-rabbitmq-password-change-me*|*"${insecure_fragment}"*)
-      echo "Refusing production deploy: ${var_name} still uses a committed placeholder/default." >&2
-      failed=1
-      ;;
-  esac
-}
-
 case "${mode}" in
   prod)
     require_secret POSTGRES_PASSWORD app
-    require_dsn DATABASE_URL "://app:app@"
     require_secret RABBITMQ_DEFAULT_PASS app
-    require_dsn MESSENGER_TRANSPORT_DSN "://app:app@"
     ;;
   monitoring)
     require_secret APP_GRAFANA_ADMIN_PASSWORD admin

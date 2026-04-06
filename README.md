@@ -64,6 +64,7 @@ Override `APP_GRAFANA_ADMIN_PASSWORD` in `.env.local` before `make up-monitoring
 Monitoring and admin ports are bound to `127.0.0.1`; if you need browser access from outside the host, publish them through a host-level reverse proxy instead of exposing raw ports directly.
 `make up-monitoring` also expects the Docker Loki logging driver plugin to be installed on the host:
 `docker plugin install grafana/loki-docker-driver:3.7.0-<amd64|arm64> --alias loki --grant-all-permissions`
+Root `.env` now contains only infra-level variables; `DATABASE_URL` and `MESSENGER_TRANSPORT_DSN` are assembled inside [app/.env](/home/mikhail/projects/symfony-template-docker/app/.env) from the container env passed into `php`.
 
 Defined in the core stack:
 
@@ -108,10 +109,10 @@ Defined in the core stack:
 
 ### Database & Doctrine
 
-- DB URL in `app/.env`:
+- DB URL in `app/.env` is assembled from infra vars passed into the `php` container:
 
 ```dotenv
-DATABASE_URL="postgresql://app:change-me-in-.env.local@db:5432/app?serverVersion=16&charset=utf8"
+DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?serverVersion=16&charset=utf8"
 ```
 
 - Doctrine ORM mapping:
@@ -234,7 +235,8 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - Use `make up-prod` for local verification of the production stack.
 - Use `make up-monitoring` only when the observability stack is actually needed.
 - `make up-prod` fails fast if committed placeholder secrets were not overridden before a production start.
-- `make kics` runs a high-signal KICS infrastructure scan and is mirrored by a dedicated GitHub Actions workflow.
+- `make kics` / `make kics-high` run the high-signal KICS infrastructure scan mirrored by the GitHub Actions workflow.
+- `make kics-full` expands the scan to include medium findings such as missing cpu/ram limits.
 - Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.
 - GitHub Actions deploys are tag-based and include a separate rollback workflow.
 - Details: [docs/deploy.md](/home/mikhail/projects/symfony-template-docker/docs/deploy.md)

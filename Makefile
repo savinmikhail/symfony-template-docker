@@ -5,7 +5,8 @@ MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.mon
 MONITORING_SERVICES := php nginx db redis rabbitmq postgres-exporter redis-exporter rabbitmq-exporter php-fpm-exporter prometheus grafana loki
 KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602
 KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
-KICS_EXCLUDE_SEVERITIES ?= info,trace,low,medium
+KICS_HIGH_EXCLUDE_SEVERITIES ?= info,trace,low,medium
+KICS_FULL_EXCLUDE_SEVERITIES ?= info,trace
 
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
@@ -23,7 +24,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector kics k6 worker dmm dmm-prod prod-cache-reset
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset
 
 up:
 	docker compose up -d --build
@@ -93,7 +94,13 @@ rector:
 	docker compose exec php php tools/rector/vendor/bin/rector process
 
 kics:
-	docker run --rm -v "$$PWD:/path" $(KICS_IMAGE) scan -p /path --exclude-paths $(KICS_EXCLUDE_PATHS) --exclude-severities $(KICS_EXCLUDE_SEVERITIES) --no-progress
+	$(MAKE) kics-high
+
+kics-high:
+	docker run --rm -v "$$PWD:/path" $(KICS_IMAGE) scan -p /path --exclude-paths $(KICS_EXCLUDE_PATHS) --exclude-severities $(KICS_HIGH_EXCLUDE_SEVERITIES) --no-progress
+
+kics-full:
+	docker run --rm -v "$$PWD:/path" $(KICS_IMAGE) scan -p /path --exclude-paths $(KICS_EXCLUDE_PATHS) --exclude-severities $(KICS_FULL_EXCLUDE_SEVERITIES) --no-progress
 
 k6:
 	docker compose run --rm k6
