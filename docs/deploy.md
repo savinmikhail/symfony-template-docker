@@ -43,11 +43,12 @@ The rollback workflow:
 
 `make up-prod` now runs the production flow:
 
-1. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
-2. waits until PHP is ready
-3. installs Composer dependencies only if `vendor/autoload.php` is missing
-4. resets and warms up `var/cache/prod`
-5. runs Doctrine migrations in `prod`
+1. validates that production secrets were overridden outside the committed `.env`
+2. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+3. waits until PHP is ready
+4. installs Composer dependencies only if `vendor/autoload.php` is missing
+5. resets and warms up `var/cache/prod`
+6. runs Doctrine migrations in `prod`
 
 ## First Production Setup
 
@@ -57,6 +58,15 @@ Before the first deploy:
 2. ensure Docker and Docker Compose are installed
 3. ensure `.env` / `.env.local` or equivalent secrets are configured on the server
 4. ensure the deploy user can run Docker commands
+
+Production note:
+
+- keep `POSTGRES_PASSWORD`, `DATABASE_URL`, `RABBITMQ_DEFAULT_PASS` and `MESSENGER_TRANSPORT_DSN` overridden outside the committed `.env`
+- `make up-prod` fails fast if those vars still use committed placeholders/defaults
+- `make up-monitoring` fails fast if `APP_GRAFANA_ADMIN_PASSWORD` still uses a committed placeholder/default
+- `make up-monitoring` also requires the Docker Loki logging driver plugin (`loki`) to be installed on the host
+- `docker-compose.prod.yml` resets `db.ports`, so PostgreSQL is not published on the host in production
+- Redis, RabbitMQ and monitoring/admin ports are bound to `127.0.0.1` and should be published externally only through a host-level reverse proxy if needed
 
 ## Notes
 

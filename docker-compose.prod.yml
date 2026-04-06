@@ -13,3 +13,6 @@ services:
       dockerfile: docker/nginx/Dockerfile
       target: prod
     volumes: !reset []
+
+  db:
+    ports: !reset []

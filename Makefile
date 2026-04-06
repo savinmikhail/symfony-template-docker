@@ -1,6 +1,11 @@
 SHELL := /bin/sh
 
 PROD_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.prod.yml
+MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
+MONITORING_SERVICES := php nginx db redis rabbitmq postgres-exporter redis-exporter rabbitmq-exporter php-fpm-exporter prometheus grafana loki
+KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602
+KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
+KICS_EXCLUDE_SEVERITIES ?= info,trace,low,medium
 
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
@@ -18,7 +23,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-prod wait-prod composer-install composer-install-prod php-rebuild php phpstan cs-fix rector k6 worker dmm dmm-prod prod-cache-reset
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector kics k6 worker dmm dmm-prod prod-cache-reset
 
 up:
 	docker compose up -d --build
@@ -27,7 +32,13 @@ up:
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
 
+up-monitoring:
+	$(MAKE) check-loki-driver
+	$(MAKE) check-monitoring-env
+	$(MONITORING_COMPOSE) up -d $(MONITORING_SERVICES)
+
 up-prod:
+	$(MAKE) check-prod-env
 	$(PROD_COMPOSE) up -d --build
 	$(MAKE) wait-prod
 	$(MAKE) composer-install-prod
@@ -35,6 +46,19 @@ up-prod:
 	$(MAKE) dmm-prod
 	@echo
 	@echo "Production application is available at: http://localhost:$(APP_HTTP_PORT)/"
+
+check-loki-driver:
+	@docker plugin inspect loki >/dev/null 2>&1 || { \
+		echo "Docker Loki logging driver is not installed." >&2; \
+		echo "Install it first, for example: docker plugin install grafana/loki-docker-driver:3.7.0-<amd64|arm64> --alias loki --grant-all-permissions" >&2; \
+		exit 1; \
+	}
+
+check-prod-env:
+	@sh ./docker/verify-prod-env.sh prod
+
+check-monitoring-env:
+	@sh ./docker/verify-prod-env.sh monitoring
 
 wait-prod:
 	until $(PROD_COMPOSE) exec -T php php -v >/dev/null 2>&1; do sleep 2; done
@@ -56,11 +80,20 @@ php:
 phpstan:
 	docker compose exec php php tools/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist
 
+phpat:
+	docker compose exec php php tools/phpat/vendor/bin/phpstan analyse -c phpat.neon.dist src tests/Architecture
+
+dep-analyse:
+	docker compose exec php php tools/composer-dependency-analyser/vendor/bin/composer-dependency-analyser --composer-json composer.json --config composer-dependency-analyser.php
+
 cs-fix:
 	docker compose exec php php tools/php-cs-fixer/vendor/bin/php-cs-fixer fix
 
 rector:
 	docker compose exec php php tools/rector/vendor/bin/rector process
+
+kics:
+	docker run --rm -v "$$PWD:/path" $(KICS_IMAGE) scan -p /path --exclude-paths $(KICS_EXCLUDE_PATHS) --exclude-severities $(KICS_EXCLUDE_SEVERITIES) --no-progress
 
 k6:
 	docker compose run --rm k6

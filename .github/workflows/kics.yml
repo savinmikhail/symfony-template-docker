@@ -1,0 +1,89 @@
+name: KICS
+
+on:
+  push:
+    paths:
+      - ".github/workflows/kics.yml"
+      - "Makefile"
+      - ".env"
+      - "app/.env"
+      - "docker-compose.yml"
+      - "docker-compose.monitoring.yml"
+      - "docker-compose.prod.yml"
+      - "docker/**"
+  pull_request:
+    paths:
+      - ".github/workflows/kics.yml"
+      - "Makefile"
+      - ".env"
+      - "app/.env"
+      - "docker-compose.yml"
+      - "docker-compose.monitoring.yml"
+      - "docker-compose.prod.yml"
+      - "docker/**"
+  schedule:
+    - cron: "17 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  kics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare KICS output directory
+        run: mkdir -p "${RUNNER_TEMP}/kics"
+
+      - name: Run KICS
+        id: kics
+        continue-on-error: true
+        env:
+          KICS_IMAGE: checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602
+        run: |
+          docker run --rm \
+            -v "$PWD:/path" \
+            -v "${RUNNER_TEMP}/kics:/output" \
+            "${KICS_IMAGE}" scan \
+            -p /path \
+            --exclude-paths /path/app/vendor,/path/frontend/node_modules,/path/app/tools \
+            --exclude-severities info,trace,low,medium \
+            --report-formats json,sarif \
+            --output-path /output \
+            --no-progress
+
+      - name: Detect KICS reports
+        id: reports
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/kics/results.sarif" ]; then
+            echo "sarif=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f "${RUNNER_TEMP}/kics/results.json" ]; then
+            echo "json=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload KICS artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kics-results
+          path: |
+            ${{ runner.temp }}/kics/results.json
+            ${{ runner.temp }}/kics/results.sarif
+          if-no-files-found: ignore
+
+      - name: Upload SARIF to Code Scanning
+        if: always() && steps.reports.outputs.sarif == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ runner.temp }}/kics/results.sarif
+
+      - name: Fail on KICS findings
+        if: steps.kics.outcome == 'failure'
+        run: exit 1

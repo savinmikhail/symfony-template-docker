@@ -1,0 +1,114 @@
+x-loki-logging: &loki-logging
+  driver: loki
+  options:
+    loki-url: "http://127.0.0.1:${APP_LOKI_PORT:-3100}/loki/api/v1/push"
+    mode: "non-blocking"
+    keep-file: "true"
+    loki-retries: "2"
+    loki-max-backoff: "800ms"
+    loki-timeout: "1s"
+
+services:
+  php:
+    logging: *loki-logging
+
+  nginx:
+    logging: *loki-logging
+
+  db:
+    logging: *loki-logging
+
+  redis:
+    logging: *loki-logging
+
+  rabbitmq:
+    logging: *loki-logging
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.10.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: "db:5432/${POSTGRES_DB}?sslmode=disable"
+      DATA_SOURCE_USER: "${POSTGRES_USER}"
+      DATA_SOURCE_PASS: "${POSTGRES_PASSWORD}"
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    volumes:
+      - ./docker/postgres/queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    ports:
+      - "127.0.0.1:${APP_PG_EXPORTER_PORT:-9187}:9187"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.63.0
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis:6379"
+    ports:
+      - "127.0.0.1:${APP_REDIS_EXPORTER_PORT:-9121}:9121"
+    depends_on:
+      - redis
+
+  rabbitmq-exporter:
+    image: kbudde/rabbitmq-exporter:1.0.0
+    restart: unless-stopped
+    environment:
+      RABBIT_URL: "http://rabbitmq:15672"
+      RABBIT_USER: "${RABBITMQ_DEFAULT_USER}"
+      RABBIT_PASSWORD: "${RABBITMQ_DEFAULT_PASS}"
+    ports:
+      - "127.0.0.1:${APP_RABBITMQ_EXPORTER_PORT:-9419}:9419"
+    depends_on:
+      - rabbitmq
+
+  php-fpm-exporter:
+    image: hipages/php-fpm_exporter:2.2.0
+    restart: unless-stopped
+    command:
+      - "--phpfpm.scrape-uri=tcp://php:9000/fpm-status"
+    ports:
+      - "127.0.0.1:${APP_PHP_FPM_EXPORTER_PORT:-9253}:9253"
+    depends_on:
+      - php
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    restart: unless-stopped
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:${APP_PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - postgres-exporter
+      - redis-exporter
+      - rabbitmq-exporter
+      - php-fpm-exporter
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "${APP_GRAFANA_ADMIN_USER}"
+      GF_SECURITY_ADMIN_PASSWORD: "${APP_GRAFANA_ADMIN_PASSWORD}"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:2.9.8
+    restart: unless-stopped
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "127.0.0.1:${APP_LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./docker/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+
+volumes:
+  loki-data:

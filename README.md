@@ -9,7 +9,7 @@ This repository is a **template** for Symfony 7.3 API services running in Docker
 - RabbitMQ
 - Doctrine ORM + migrations
 - Symfony Messenger (Doctrine transports + failure transport)
-- Observability stack: Prometheus, Grafana, Loki, Promtail, exporters
+- Observability stack: Prometheus, Grafana, Loki, Docker Loki logging driver, exporters
 - k6 for HTTP load testing
 
 The goal is to provide a **production‑like environment** for local development and experiments with metrics, logging and messaging.
@@ -27,7 +27,7 @@ The goal is to provide a **production‑like environment** for local development
   - `migrations/` – Doctrine migrations (organized by year & month)
   - `bin/` – console tools (`bin/console`, `bin/phpunit`)
   - `tools/` – isolated Composer tools (via `bamarni/composer-bin-plugin`)
-    - `rector`, `php-cs-fixer`, `phpstan`
+    - `rector`, `php-cs-fixer`, `phpstan`, `phpat`, `composer-dependency-analyser`
 - `docker/`
   - `php/` – PHP‑FPM Dockerfile and configs (`php.ini`, `php-fpm.conf`, `www.conf`, `xdebug.ini`)
   - `nginx/` – Nginx config + vhost
@@ -35,9 +35,9 @@ The goal is to provide a **production‑like environment** for local development
   - `prometheus/` – Prometheus configuration (scraping app exporters)
   - `grafana/` – provisioned datasources and dashboards (HTTP, Redis, RabbitMQ)
   - `loki/` – Loki configuration
-  - `promtail/` – Promtail configuration for Docker log scraping
   - `k6/load.js` – k6 load script for `/products` API
-- `docker-compose.yml` – all services (application + infra)
+- `docker-compose.yml` – core application services
+- `docker-compose.monitoring.yml` – optional observability stack
 - `docker-compose.prod.yml` – production overrides for immutable runtime containers
 - `Makefile` – helper commands for running the stack and tools
 - `docs/deploy.md` – tag-based deployment and rollback workflow
@@ -48,7 +48,24 @@ The goal is to provide a **production‑like environment** for local development
 
 ## Docker stack
 
-Defined in `docker-compose.yml`:
+Core services are defined in `docker-compose.yml`. Optional observability services live in `docker-compose.monitoring.yml` and can be started with:
+
+```bash
+make up-monitoring
+```
+
+or:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
+
+Override `APP_GRAFANA_ADMIN_PASSWORD` in `.env.local` before `make up-monitoring`, otherwise the guard will refuse to start Grafana with the committed placeholder.
+Monitoring and admin ports are bound to `127.0.0.1`; if you need browser access from outside the host, publish them through a host-level reverse proxy instead of exposing raw ports directly.
+`make up-monitoring` also expects the Docker Loki logging driver plugin to be installed on the host:
+`docker plugin install grafana/loki-docker-driver:3.7.0-<amd64|arm64> --alias loki --grant-all-permissions`
+
+Defined in the core stack:
 
 - `php` – PHP 8.4 FPM (Alpine)
   - Built from `docker/php/Dockerfile`
@@ -67,21 +84,22 @@ Defined in `docker-compose.yml`:
   - Tuned with `docker/postgres/postgresql.conf`
   - `pg_stat_statements` enabled via `init.sql`
   - Healthcheck via `pg_isready`
+  - Published only on `127.0.0.1:${APP_DB_PORT}` in `docker-compose.yml`; `docker-compose.prod.yml` resets `db.ports`
 - `redis` – Redis 7 (Alpine)
   - `maxmemory` taken from `APP_REDIS_MEMORY_LIMIT`
 - `rabbitmq` – RabbitMQ 3 management
-  - Default user/pass: `app/app`
+  - Credentials come from env; committed `.env` uses placeholder passwords that must be overridden in `.env.local` before production deploys
   - Ports:
-    - AMQP: `APP_RABBITMQ_PORT` (default `5672`)
-    - Management UI: `APP_RABBITMQ_MGMT_PORT` (default `15672`)
-- Exporters & observability
+    - AMQP: `127.0.0.1:${APP_RABBITMQ_PORT}` (default `5672`)
+    - Management UI: `127.0.0.1:${APP_RABBITMQ_MGMT_PORT}` (default `15672`)
+- Exporters & observability (`docker-compose.monitoring.yml`)
   - `postgres-exporter` – PostgreSQL metrics (Prometheus)
   - `redis-exporter` – Redis metrics (`oliver006/redis_exporter`)
   - `rabbitmq-exporter` – RabbitMQ metrics (`kbudde/rabbitmq-exporter`)
   - `prometheus` – metrics storage (`docker/prometheus/prometheus.yml`)
   - `grafana` – dashboards (Redis, RabbitMQ, HTTP, etc.)
   - `loki` – log storage
-  - `promtail` – collects Docker logs → Loki
+  - Docker Loki logging driver on the host ships container logs → Loki
 - `k6` – Grafana k6 image for load testing
 
 ---
@@ -93,7 +111,7 @@ Defined in `docker-compose.yml`:
 - DB URL in `app/.env`:
 
 ```dotenv
-DATABASE_URL="postgresql://app:app@db:5432/app?serverVersion=16&charset=utf8"
+DATABASE_URL="postgresql://app:change-me-in-.env.local@db:5432/app?serverVersion=16&charset=utf8"
 ```
 
 - Doctrine ORM mapping:
@@ -194,6 +212,13 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - PHPStan:
   - `app/tools/phpstan/vendor/bin/phpstan`
   - Config: `app/phpstan.neon.dist`
+- PHPat:
+  - `app/tools/phpat/vendor/bin/phpstan`
+  - Config: `app/phpat.neon.dist`
+  - Rules: `app/tests/Architecture/ModuleBoundariesTest.php`
+- Composer Dependency Analyser:
+  - `app/tools/composer-dependency-analyser/vendor/bin/composer-dependency-analyser`
+  - Config: `app/composer-dependency-analyser.php`
 
 ### PHPUnit
 
@@ -207,6 +232,9 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 ## Production deploy
 
 - Use `make up-prod` for local verification of the production stack.
+- Use `make up-monitoring` only when the observability stack is actually needed.
+- `make up-prod` fails fast if committed placeholder secrets were not overridden before a production start.
+- `make kics` runs a high-signal KICS infrastructure scan and is mirrored by a dedicated GitHub Actions workflow.
 - Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.
 - GitHub Actions deploys are tag-based and include a separate rollback workflow.
 - Details: [docs/deploy.md](/home/mikhail/projects/symfony-template-docker/docs/deploy.md)
@@ -223,7 +251,6 @@ Scrape configs in `docker/prometheus/prometheus.yml`:
 - PostgreSQL exporter (`postgres-exporter:9187`)
 - Redis exporter (`redis-exporter:9121`)
 - RabbitMQ exporter (`rabbitmq-exporter:9419`)
-- Promtail metrics (nginx request time histogram) (`promtail:9080`)
 
 ### Dashboards (Grafana)
 
@@ -237,17 +264,17 @@ Provisioned via:
   - RabbitMQ – `docker/grafana/dashboards/rabbitmq.json`
   - HTTP RPS & latency (via Loki) – `docker/grafana/dashboards/http.json`
 
-Grafana runs on `APP_GRAFANA_PORT` (default `3000`), default admin credentials: `admin/admin`.
+Grafana runs on `127.0.0.1:${APP_GRAFANA_PORT}` (default `3000`). Override `APP_GRAFANA_ADMIN_USER` / `APP_GRAFANA_ADMIN_PASSWORD` in `.env.local` before exposing it anywhere beyond local development.
 
-### Logs (Loki + Promtail)
+### Logs (Loki + Docker logging driver)
 
 - Loki:
   - Config: `docker/loki/config.yml`
-  - Exposed on `APP_LOKI_PORT` (default `3100`)
-- Promtail:
-  - Config: `docker/promtail/config.yml`
-  - Scrapes Docker logs via `/var/run/docker.sock`
-  - Adds labels `service`, `container`, `compose_project`, `stream`.
+  - Exposed on `127.0.0.1:${APP_LOKI_PORT}` (default `3100`)
+- Docker Loki logging driver:
+  - Ships container logs directly from Docker to Loki
+  - Requires the `loki` Docker plugin on the host
+  - Provides Compose metadata such as `compose_project` / `compose_service`
 
 PHP & Nginx are configured to write logs to `stdout`/`stderr`:
 
@@ -259,8 +286,8 @@ PHP & Nginx are configured to write logs to `stdout`/`stderr`:
 
 In Grafana → Explore → Loki you can query:
 
-- `{service="nginx"}` – HTTP logs
-- `{service="php"}` – Symfony/PHP logs
+- `{compose_service="nginx"}` – HTTP logs
+- `{compose_service="php"}` – Symfony/PHP logs
 
 ---
 
@@ -300,6 +327,8 @@ From the repository root:
 Static analysis / code style (run inside PHP container via Docker):
 
 - `make phpstan` – runs PHPStan with `phpstan.neon.dist`
+- `make phpat` – runs PHPat architecture rules with `phpat.neon.dist`
+- `make dep-analyse` – runs Composer Dependency Analyser with `composer-dependency-analyser.php`
 - `make cs-fix` – runs PHP CS Fixer with `.php-cs-fixer.dist.php`
 - `make rector` – runs Rector with `rector.php`
 
