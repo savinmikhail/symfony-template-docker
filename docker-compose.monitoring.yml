@@ -8,23 +8,35 @@ x-loki-logging: &loki-logging
     loki-max-backoff: "800ms"
     loki-timeout: "1s"
 
+x-security-defaults: &security-defaults
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 services:
   php:
+    <<: *security-defaults
     logging: *loki-logging
 
   nginx:
+    <<: *security-defaults
     logging: *loki-logging
 
   db:
+    <<: *security-defaults
     logging: *loki-logging
 
   redis:
+    <<: *security-defaults
     logging: *loki-logging
 
   rabbitmq:
+    <<: *security-defaults
     logging: *loki-logging
 
   postgres-exporter:
+    <<: *security-defaults
     image: prometheuscommunity/postgres-exporter:v0.10.1
     restart: unless-stopped
     environment:
@@ -41,6 +53,7 @@ services:
         condition: service_healthy
 
   redis-exporter:
+    <<: *security-defaults
     image: oliver006/redis_exporter:v1.63.0
     restart: unless-stopped
     environment:
@@ -51,6 +64,7 @@ services:
       - redis
 
   rabbitmq-exporter:
+    <<: *security-defaults
     image: kbudde/rabbitmq-exporter:1.0.0
     restart: unless-stopped
     environment:
@@ -63,6 +77,7 @@ services:
       - rabbitmq
 
   php-fpm-exporter:
+    <<: *security-defaults
     image: hipages/php-fpm_exporter:2.2.0
     restart: unless-stopped
     command:
@@ -73,6 +88,7 @@ services:
       - php
 
   prometheus:
+    <<: *security-defaults
     image: prom/prometheus:v2.53.1
     restart: unless-stopped
     volumes:
@@ -86,6 +102,7 @@ services:
       - php-fpm-exporter
 
   grafana:
+    <<: *security-defaults
     image: grafana/grafana:11.2.0
     restart: unless-stopped
     ports:
@@ -101,6 +118,7 @@ services:
       - loki
 
   loki:
+    <<: *security-defaults
     image: grafana/loki:2.9.8
     restart: unless-stopped
     command: -config.file=/etc/loki/config.yml
