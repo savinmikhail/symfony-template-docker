@@ -1,14 +1,7 @@
 # Production overrides
-x-security-defaults: &security-defaults
-  security_opt:
-    - no-new-privileges:true
-  cap_drop:
-    - ALL
-
 services:
   # kics-scan ignore-block
   php:
-    <<: *security-defaults
     image: ${APP_NAME:-platform}-php:prod
     build:
       target: prod
@@ -16,7 +9,6 @@ services:
 
   # kics-scan ignore-block
   nginx:
-    <<: *security-defaults
     image: ${APP_NAME:-platform}-nginx:prod
     build:
       context: .
@@ -26,5 +18,4 @@ services:
 
   # kics-scan ignore-block
   db:
-    <<: *security-defaults
     ports: !reset []
