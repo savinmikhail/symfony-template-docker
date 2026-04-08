@@ -122,5 +122,5 @@ dmm-prod:
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug doctrine:migration:migrate -n
 
 prod-cache-reset:
-	$(PROD_COMPOSE) exec -T -u 0:0 php sh -lc 'rm -rf var/cache/prod && mkdir -p var/cache/prod && chown -R www-data:www-data var/cache'
+	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:clear --no-warmup
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:warmup
