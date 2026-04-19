@@ -17,27 +17,22 @@ x-security-defaults: &security-defaults
 services:
   # kics-scan ignore-block
   php:
-    <<: *security-defaults
     logging: *loki-logging
 
   # kics-scan ignore-block
   nginx:
-    <<: *security-defaults
     logging: *loki-logging
 
   # kics-scan ignore-block
   db:
-    <<: *security-defaults
     logging: *loki-logging
 
   # kics-scan ignore-block
   redis:
-    <<: *security-defaults
     logging: *loki-logging
 
   # kics-scan ignore-block
   rabbitmq:
-    <<: *security-defaults
     logging: *loki-logging
 
   postgres-exporter:

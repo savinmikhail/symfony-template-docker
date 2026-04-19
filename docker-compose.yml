@@ -94,9 +94,10 @@ services:
       start_period: 10s
 
   redis:
-    <<: *security-defaults
     image: redis:7-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: >
       redis-server
       --appendonly yes
@@ -112,9 +113,10 @@ services:
       start_period: 10s
 
   rabbitmq:
-    <<: *security-defaults
     image: rabbitmq:3-management-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
