@@ -23,10 +23,36 @@ require_secret() {
   esac
 }
 
+is_true() {
+  case "${1:-}" in
+    1|true|TRUE|yes|YES|on|ON)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+require_if_enabled() {
+  enabled_var=$1
+  required_var=$2
+  eval "enabled_value=\${$enabled_var-}"
+
+  if is_true "${enabled_value}"; then
+    require_secret "${required_var}" ""
+  fi
+}
+
 case "${mode}" in
   prod)
     require_secret POSTGRES_PASSWORD app
     require_secret RABBITMQ_DEFAULT_PASS app
+    require_if_enabled POSTGRES_BACKUP_S3_ENABLED POSTGRES_BACKUP_S3_ENDPOINT
+    require_if_enabled POSTGRES_BACKUP_S3_ENABLED POSTGRES_BACKUP_S3_REGION
+    require_if_enabled POSTGRES_BACKUP_S3_ENABLED POSTGRES_BACKUP_S3_BUCKET
+    require_if_enabled POSTGRES_BACKUP_S3_ENABLED POSTGRES_BACKUP_S3_ACCESS_KEY
+    require_if_enabled POSTGRES_BACKUP_S3_ENABLED POSTGRES_BACKUP_S3_SECRET_KEY
     ;;
   monitoring)
     require_secret APP_GRAFANA_ADMIN_PASSWORD admin

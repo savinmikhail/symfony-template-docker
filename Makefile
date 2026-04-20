@@ -28,7 +28,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
 
 up:
 	docker compose up -d --build
@@ -124,3 +124,7 @@ dmm-prod:
 prod-cache-reset:
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:clear --no-warmup
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:warmup
+
+backup-prod-now:
+	$(MAKE) check-prod-env
+	$(PROD_COMPOSE) run --rm postgres-backup backup-once
