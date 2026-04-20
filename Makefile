@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 PROD_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.prod.yml
 MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
-MONITORING_SERVICES := php nginx db redis rabbitmq postgres-exporter redis-exporter rabbitmq-exporter php-fpm-exporter prometheus grafana loki
+MONITORING_SERVICES := frontend php nginx db redis rabbitmq postgres-exporter redis-exporter rabbitmq-exporter php-fpm-exporter prometheus grafana loki
 KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602
 KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
 KICS_HIGH_EXCLUDE_SEVERITIES ?= info,trace,low,medium
@@ -28,14 +28,16 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
 
 up:
 	docker compose up -d --build
 	$(MAKE) composer-install
+	$(MAKE) frontend-install
 	$(MAKE) dmm
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
+	@echo "Frontend is available at: http://localhost:$(APP_FRONTEND_PORT)/"
 
 up-monitoring:
 	$(MAKE) check-loki-driver
@@ -73,6 +75,18 @@ composer-install:
 
 composer-install-prod:
 	$(PROD_COMPOSE) exec -T php sh -lc 'if [ ! -f vendor/autoload.php ]; then composer install --no-dev --prefer-dist --no-interaction --classmap-authoritative; fi'
+
+frontend-install:
+	docker compose exec -T frontend npm install
+
+frontend-build:
+	docker compose exec -T frontend npm run build
+
+frontend-lint:
+	docker compose exec -T frontend npm run lint
+
+frontend-stylelint:
+	docker compose exec -T frontend npm run stylelint
 
 php-rebuild:
 	docker compose up -d --no-deps --build php

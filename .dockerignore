@@ -1,0 +1,8 @@
+.git
+.idea
+.env.local
+app/var
+app/vendor
+frontend/dist
+frontend/node_modules
+var/backups

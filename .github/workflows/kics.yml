@@ -10,6 +10,7 @@ on:
       - "docker-compose.yml"
       - "docker-compose.monitoring.yml"
       - "docker-compose.prod.yml"
+      - "frontend/**"
       - "docker/**"
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - "docker-compose.yml"
       - "docker-compose.monitoring.yml"
       - "docker-compose.prod.yml"
+      - "frontend/**"
       - "docker/**"
   schedule:
     - cron: "17 2 * * 1"

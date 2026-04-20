@@ -1,9 +1,10 @@
-# Symfony 7.3 Docker Template (API‑only)
+# Symfony 7.3 Docker Template
 
-This repository is a **template** for Symfony 7.3 API services running in Docker with a full set of infrastructure:
+This repository is a **template** for Symfony 7.3 services with a small Vue SPA running in Docker:
 
-- PHP‑FPM 8.4 (Alpine) with Symfony 7.3 (API‑only skeleton)
-- Nginx as HTTP entrypoint
+- PHP‑FPM 8.4 (Alpine) with Symfony 7.3
+- Vue 3 + Vite frontend for a quick SPA start
+- Nginx as HTTP entrypoint and production static asset server
 - PostgreSQL 16
 - Redis
 - RabbitMQ
@@ -28,6 +29,10 @@ The goal is to provide a **production‑like environment** for local development
   - `bin/` – console tools (`bin/console`, `bin/phpunit`)
   - `tools/` – isolated Composer tools (via `bamarni/composer-bin-plugin`)
     - `rector`, `php-cs-fixer`, `phpstan`, `phpat`, `composer-dependency-analyser`
+- `frontend/` – Vue 3 + Vite SPA
+  - `src/App.vue` – sample product catalog UI
+  - `src/api.js` – minimal fetch wrapper for `/products`
+  - `vite.config.js` – dev proxy to nginx for backend routes
 - `docker/`
   - `php/` – PHP‑FPM Dockerfile and configs (`php.ini`, `php-fpm.conf`, `www.conf`, `xdebug.ini`)
   - `nginx/` – Nginx config + vhost
@@ -68,6 +73,11 @@ Root `.env` now contains only infra-level variables; `DATABASE_URL` and `MESSENG
 
 Defined in the core stack:
 
+- `frontend` – Node 22 + Vite dev server
+  - Mounts `./frontend` as project root
+  - Exposed as `APP_FRONTEND_PORT` (default `5173`) on the host
+  - Proxies `/products` to nginx inside Docker, so the SPA can call the Symfony API without CORS setup
+  - Disabled in `docker-compose.prod.yml`; production frontend assets are built into the nginx image instead
 - `php` – PHP 8.4 FPM (Alpine)
   - Built from `docker/php/Dockerfile`
   - Uses `install-php-extensions` (intl, opcache, pdo_pgsql, zip, xdebug in dev)
@@ -79,6 +89,7 @@ Defined in the core stack:
   - Configured via `docker/nginx/nginx.conf` and `docker/nginx/conf.d/app.conf`
   - Listens on port `8080` in the container
   - Exposed as `APP_HTTP_PORT` (default `8080`) on the host
+  - In production, its image builds `frontend/dist` and serves the SPA directly
   - Access log in JSON to stdout (used by Loki)
 - `db` – PostgreSQL 16 (Alpine)
   - Data volume: `db-data`
@@ -161,6 +172,30 @@ Routes:
   - On success: `201 Created` with created product.
   - On invalid payload: `400 Bad Request`.
 
+## Frontend application
+
+The `frontend/` directory is intentionally small so a new project can be started as a SPA without changing the Docker setup first.
+
+Development:
+
+```bash
+make up
+```
+
+- Symfony/nginx API: `http://localhost:${APP_HTTP_PORT}`
+- Vite frontend: `http://localhost:${APP_FRONTEND_PORT}`
+
+Useful commands:
+
+```bash
+make frontend-install
+make frontend-lint
+make frontend-stylelint
+make frontend-build
+```
+
+Production does not start the Vite dev server. `docker-compose.prod.yml` puts `frontend` behind the `dev` profile, while `docker/nginx/Dockerfile` runs `npm ci && npm run build` and copies `frontend/dist` into `/var/www/app/public`.
+
 ### Messenger
 
 Package: `symfony/messenger`  
@@ -239,6 +274,7 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - `make kics` / `make kics-high` run the high-signal KICS infrastructure scan mirrored by the GitHub Actions workflow.
 - `make kics-full` expands the scan to include medium findings such as missing cpu/ram limits.
 - Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.
+- The production `nginx` image contains the compiled SPA; the `frontend` dev service is not started by `make up-prod`.
 - GitHub Actions deploys are tag-based and include a separate rollback workflow.
 - Details: [docs/deploy.md](/home/mikhail/projects/symfony-template-docker/docs/deploy.md)
 

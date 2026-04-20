@@ -1,3 +1,5 @@
 .env.local
+/frontend/dist/
+/frontend/node_modules/
 /app/tools/**/vendor/
 /var/backups/

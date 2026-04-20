@@ -50,6 +50,8 @@ The rollback workflow:
 5. resets and warms up `var/cache/prod`
 6. runs Doctrine migrations in `prod`
 
+The production nginx image builds the Vue/Vite frontend and serves the compiled SPA from `/var/www/app/public`. The Vite `frontend` service is assigned to the `dev` profile in `docker-compose.prod.yml`, so it is not started by `make up-prod`.
+
 ## First Production Setup
 
 Before the first deploy:
@@ -72,7 +74,7 @@ Production note:
 ## Notes
 
 - Production must be started via `make up-prod`, not `make up`
-- `make up` uses the `dev` PHP target with host UID/GID remapping
+- `make up` uses the `dev` PHP target with host UID/GID remapping and starts the Vite dev server
 - `make up-prod` uses the `prod` targets for both `php` and `nginx`
 - production compose removes bind mounts for application code so runtime matches the built image
 
