@@ -1,6 +1,9 @@
 name: Deploy
 
 on:
+  push:
+    tags:
+      - '*'
   workflow_dispatch:
     inputs:
       tag:
@@ -32,7 +35,7 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_TAG: ${{ inputs.tag }}
+          DEPLOY_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" <<EOF
           set -eu

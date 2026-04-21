@@ -28,7 +28,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
+.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
 
 up:
 	docker compose up -d --build
@@ -113,6 +113,29 @@ rector:
 
 gen-secrets:
 	@SECRET_LENGTH=$(SECRET_LENGTH) APP_SECRET_LENGTH=$(APP_SECRET_LENGTH) $(GEN_SECRETS_SCRIPT) $(GEN_SECRETS_VARS)
+
+tag:
+	@set -eu; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Working tree is dirty. Commit or stash changes before tagging." >&2; \
+		exit 1; \
+	fi; \
+	LATEST_TAG=$$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n 1); \
+	if [ -z "$$LATEST_TAG" ]; then \
+		LATEST_TAG="v0.0.0"; \
+	fi; \
+	VERSION=$${LATEST_TAG#v}; \
+	MAJOR=$$(printf '%s' "$$VERSION" | cut -d. -f1); \
+	MINOR=$$(printf '%s' "$$VERSION" | cut -d. -f2); \
+	PATCH=$$(printf '%s' "$$VERSION" | cut -d. -f3); \
+	NEXT_TAG="v$${MAJOR}.$${MINOR}.$$((PATCH + 1))"; \
+	if git rev-parse -q --verify "refs/tags/$$NEXT_TAG" >/dev/null; then \
+		echo "Tag $$NEXT_TAG already exists." >&2; \
+		exit 1; \
+	fi; \
+	git tag "$$NEXT_TAG"; \
+	git push origin "$$NEXT_TAG"; \
+	echo "Pushed $$NEXT_TAG"
 
 kics:
 	$(MAKE) kics-high
