@@ -1,8 +1,11 @@
 SHELL := /bin/sh
 
 PROD_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.prod.yml
+PROD_MONITORING_COMPOSE := COMPOSE_PROFILES=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml
 MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
-MONITORING_SERVICES := frontend php nginx db redis rabbitmq postgres-exporter redis-exporter rabbitmq-exporter php-fpm-exporter prometheus grafana loki
+MONITORING_SERVICES := frontend php nginx db redis rabbitmq nginx-exporter postgres-exporter php-fpm-exporter prometheus grafana loki
+GRAFANA_ALERTING_PROVISIONING_DIR := ./tmp/grafana/provisioning/alerting
+GRAFANA_ALERTING_CONTACTPOINTS := $(GRAFANA_ALERTING_PROVISIONING_DIR)/contactpoints.generated.yml
 KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602
 KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
 KICS_HIGH_EXCLUDE_SEVERITIES ?= info,trace,low,medium
@@ -28,7 +31,7 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
+.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
 
 up:
 	docker compose up -d --build
@@ -39,14 +42,33 @@ up:
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
 	@echo "Frontend is available at: http://localhost:$(APP_FRONTEND_PORT)/"
 
+suggest-free-ports:
+	./docker/suggest-free-ports.sh
+
+check-free-ports:
+	./docker/suggest-free-ports.sh --fail-if-busy
+
 up-monitoring:
 	$(MAKE) check-loki-driver
 	$(MAKE) check-monitoring-env
-	$(MONITORING_COMPOSE) up -d $(MONITORING_SERVICES)
+	$(MAKE) grafana-alerting-provisioning
+	$(MONITORING_COMPOSE) up -d --wait --remove-orphans $(MONITORING_SERVICES)
+	$(MAKE) reload-prometheus COMPOSE_CMD='$(MONITORING_COMPOSE)'
+
+grafana-alerting-provisioning:
+	@rm -rf $(GRAFANA_ALERTING_PROVISIONING_DIR)
+	@mkdir -p $(GRAFANA_ALERTING_PROVISIONING_DIR)
+	@cp docker/grafana/provisioning/alerting/*.yml $(GRAFANA_ALERTING_PROVISIONING_DIR)/
+	@./docker/generate-grafana-alerting.sh $(GRAFANA_ALERTING_CONTACTPOINTS)
 
 up-prod:
+	$(MAKE) check-free-ports
 	$(MAKE) check-prod-env
-	$(PROD_COMPOSE) up -d --build
+	$(MAKE) check-loki-driver
+	$(MAKE) check-monitoring-env
+	$(MAKE) grafana-alerting-provisioning
+	$(PROD_MONITORING_COMPOSE) up -d --wait --build --remove-orphans
+	$(MAKE) reload-prometheus COMPOSE_CMD='$(PROD_MONITORING_COMPOSE)'
 	$(MAKE) wait-prod
 	$(MAKE) composer-install-prod
 	$(MAKE) prod-cache-reset
@@ -69,6 +91,9 @@ check-monitoring-env:
 
 wait-prod:
 	until $(PROD_COMPOSE) exec -T php php -v >/dev/null 2>&1; do sleep 2; done
+
+reload-prometheus:
+	$(COMPOSE_CMD) kill --signal=HUP prometheus
 
 composer-install:
 	docker compose exec -T -u $(HOST_UID):$(HOST_GID) php sh -lc 'mkdir -p vendor && composer install --no-interaction --prefer-dist'

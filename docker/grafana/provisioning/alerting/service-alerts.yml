@@ -1,0 +1,538 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: service-production
+    folder: Service Alerts
+    interval: 1m
+    rules:
+      - uid: service_app_target_down
+        title: App target down
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="app"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Prometheus cannot scrape the app metrics target.
+          description: Check the Prometheus targets page for the app job, then inspect nginx and php container logs.
+        labels:
+          severity: critical
+
+      - uid: service_nginx_target_down
+        title: Nginx target down
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="nginx"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Prometheus cannot scrape the nginx exporter target.
+          description: Check the Prometheus targets page for the nginx job, then inspect nginx-exporter and nginx container logs.
+        labels:
+          severity: critical
+
+      - uid: service_php_fpm_target_down
+        title: PHP-FPM target down
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="php-fpm"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Prometheus cannot scrape the PHP-FPM exporter target.
+          description: Check the Prometheus targets page for the php-fpm job, then inspect php-fpm-exporter and php container logs.
+        labels:
+          severity: critical
+
+      - uid: service_postgres_target_down
+        title: Postgres target down
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: up{job="postgres"}
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Prometheus cannot scrape the Postgres exporter target.
+          description: Check the Prometheus targets page for the postgres job, then inspect postgres-exporter and db container logs.
+        labels:
+          severity: critical
+
+      - uid: service_http_5xx_rate_high
+        title: HTTP 5xx rate high
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 100 * sum(rate(app_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(app_http_requests_total[5m])), 0.001)
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: HTTP 5xx responses are above 1 percent.
+          description: Open Service Production Overview, then use Service Logs Drilldown filtered by level=error.
+        labels:
+          severity: critical
+
+      - uid: service_http_p95_latency_high
+        title: HTTP p95 latency high
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket[5m])))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: HTTP p95 latency is above 1 second.
+          description: Check the slowest routes table and PHP-FPM saturation panels.
+        labels:
+          severity: warning
+
+      - uid: service_php_fpm_queue_backed_up
+        title: PHP-FPM queue backed up
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(phpfpm_listen_queue)
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: PHP-FPM has queued requests.
+          description: Check active processes, max children and app latency.
+        labels:
+          severity: warning
+
+      - uid: service_postgres_deadlocks
+        title: Postgres deadlocks detected
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: sum(increase(pg_stat_database_deadlocks[5m]))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Postgres reported deadlocks.
+          description: Inspect database activity and recent application errors.
+        labels:
+          severity: warning
+
+      - uid: service_postgres_backup_failure_logs
+        title: Postgres backup failure logs
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: sum(count_over_time({compose_service="postgres-backup"} |~ "[Ee]rror|[Ff]ailed|Missing required env|permission denied|connection refused|timeout|No such|denied" [15m]))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Postgres backup emitted failure-like logs.
+          description: Check postgres-backup logs and verify the latest local or S3 dump.
+        labels:
+          severity: critical
+
+      - uid: service_postgres_backup_stale
+        title: Postgres backup stale
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: (time() - max(app_postgres_backup_last_success_timestamp_seconds) > 108000) or (up{job="backup-metrics"} == 1 unless on() app_postgres_backup_last_success_timestamp_seconds)
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: Postgres backup has no fresh success heartbeat.
+          description: Check postgres-backup logs and verify the latest local or S3 dump. The success heartbeat is expected within 30 hours.
+        labels:
+          severity: critical

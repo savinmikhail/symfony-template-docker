@@ -56,6 +56,8 @@ case "${mode}" in
     ;;
   monitoring)
     require_secret APP_GRAFANA_ADMIN_PASSWORD admin
+    require_if_enabled APP_GRAFANA_TELEGRAM_ENABLED APP_GRAFANA_TELEGRAM_BOT_TOKEN
+    require_if_enabled APP_GRAFANA_TELEGRAM_ENABLED APP_GRAFANA_TELEGRAM_CHAT_ID
     ;;
   *)
     echo "Unknown verification mode: ${mode}" >&2

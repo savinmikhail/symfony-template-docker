@@ -26,6 +26,36 @@ is_true() {
   esac
 }
 
+write_success_metrics() {
+  metrics_dir=${POSTGRES_BACKUP_METRICS_DIR:-}
+
+  if [ -z "${metrics_dir}" ]; then
+    return
+  fi
+
+  mkdir -p "${metrics_dir}"
+  chmod 755 "${metrics_dir}" || true
+
+  metric_file="${metrics_dir%/}/postgres_backup.prom"
+  temp_metric_file="${metric_file}.tmp"
+  success_timestamp=$(date -u +"%s")
+  dump_size_bytes=$(wc -c < "${final_dump}" | tr -d ' ')
+
+  cat > "${temp_metric_file}" <<EOF
+# HELP app_postgres_backup_last_success_timestamp_seconds Unix timestamp of the last successful PostgreSQL backup.
+# TYPE app_postgres_backup_last_success_timestamp_seconds gauge
+app_postgres_backup_last_success_timestamp_seconds ${success_timestamp}
+# HELP app_postgres_backup_last_success_size_bytes Size of the last successful PostgreSQL backup dump.
+# TYPE app_postgres_backup_last_success_size_bytes gauge
+app_postgres_backup_last_success_size_bytes ${dump_size_bytes}
+EOF
+
+  chmod 644 "${temp_metric_file}"
+  mv "${temp_metric_file}" "${metric_file}"
+  chmod 644 "${metric_file}"
+  log "Wrote backup metrics: ${metric_file}"
+}
+
 write_rclone_config() {
   config_path=$1
   force_path_style=${POSTGRES_BACKUP_S3_PATH_STYLE:-1}
@@ -93,6 +123,7 @@ POSTGRES_BACKUP_KEEP_DAYS=${POSTGRES_BACKUP_KEEP_DAYS:-14}
 POSTGRES_BACKUP_PREFIX=${POSTGRES_BACKUP_PREFIX:-postgres}
 POSTGRES_BACKUP_S3_PREFIX=${POSTGRES_BACKUP_S3_PREFIX:-${POSTGRES_BACKUP_PREFIX%/}}
 POSTGRES_BACKUP_NAME=${POSTGRES_BACKUP_NAME:-${POSTGRES_DB}}
+POSTGRES_BACKUP_METRICS_DIR=${POSTGRES_BACKUP_METRICS_DIR:-${POSTGRES_BACKUP_DIR%/}/.metrics}
 
 backup_dir="${POSTGRES_BACKUP_DIR%/}/${POSTGRES_BACKUP_PREFIX%/}/${POSTGRES_BACKUP_NAME}"
 mkdir -p "${backup_dir}"
@@ -134,6 +165,8 @@ if [ "${POSTGRES_BACKUP_KEEP_DAYS}" -gt 0 ] 2>/dev/null; then
   find "${backup_dir}" -type f -name '*.dump' -mtime +"${POSTGRES_BACKUP_KEEP_DAYS}" -delete
   find "${backup_dir}" -type f -name '*.sha256' -mtime +"${POSTGRES_BACKUP_KEEP_DAYS}" -delete
 fi
+
+write_success_metrics
 
 trap - EXIT INT TERM
 log "Backup completed: ${final_dump}"

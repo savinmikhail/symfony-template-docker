@@ -1,0 +1,145 @@
+{
+  "uid": "service-logs-drilldown",
+  "title": "Service Logs Drilldown",
+  "tags": ["service", "logs", "drilldown"],
+  "timezone": "browser",
+  "schemaVersion": 30,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "type": "custom",
+        "name": "service",
+        "label": "Service",
+        "query": "php,nginx,db,redis,rabbitmq,grafana,prometheus,loki,postgres-backup",
+        "current": { "text": "php", "value": "php", "selected": true },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      },
+      {
+        "type": "custom",
+        "name": "level",
+        "label": "Level regex",
+        "query": "ERROR|CRITICAL,WARNING|ERROR|CRITICAL,INFO|WARNING|ERROR|CRITICAL,.*",
+        "current": { "text": "ERROR|CRITICAL", "value": "ERROR|CRITICAL", "selected": true },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "options": []
+      },
+      {
+        "type": "textbox",
+        "name": "request_id",
+        "label": "Request id",
+        "query": "",
+        "current": { "text": "", "value": "" },
+        "hide": 0,
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "logs",
+      "title": "Service logs filtered by level",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{compose_service=\"$service\"} |~ \"$level\"",
+          "limit": 1000
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Request id search",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{compose_service=~\"php|nginx\"} |= \"$request_id\"",
+          "limit": 500
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Nginx 4xx / 5xx",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{compose_service=\"nginx\"} | json | __error__=\"\" | status >= 400 and status < 600",
+          "limit": 500
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Slow nginx requests over 1s",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{compose_service=\"nginx\"} | json | __error__=\"\" | request_time > 1",
+          "limit": 500
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "PHP exceptions and provider failures",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{compose_service=\"php\"} |~ \"ERROR|CRITICAL|Exception|failed|invalid_response_json|rate_limited|upstream_5xx\"",
+          "limit": 500
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    }
+  ]
+}

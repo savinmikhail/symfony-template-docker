@@ -2,26 +2,47 @@
 set -eu
 
 backup_script=/usr/local/bin/postgres-backup.sh
-cron_wrapper=/usr/local/bin/postgres-backup-cron.sh
+cron_wrapper=/usr/local/bin/postgres-backup-cron-run.sh
+
+shell_quote() {
+  printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
 
 write_cron_wrapper() {
-  cat > "${cron_wrapper}" <<'EOF'
-#!/bin/sh
-set -eu
+  {
+    echo '#!/bin/sh'
+    echo 'set -eu'
 
-lock_dir=/tmp/postgres-backup.lock
-if ! mkdir "${lock_dir}" 2>/dev/null; then
-  printf '[postgres-backup] Previous backup is still running, skipping\n'
-  exit 0
-fi
+    for var_name in \
+      POSTGRES_HOST \
+      POSTGRES_PORT \
+      POSTGRES_DB \
+      POSTGRES_USER \
+      POSTGRES_PASSWORD \
+      POSTGRES_BACKUP_DIR \
+      POSTGRES_BACKUP_KEEP_DAYS \
+      POSTGRES_BACKUP_PREFIX \
+      POSTGRES_BACKUP_NAME \
+      POSTGRES_BACKUP_METRICS_DIR \
+      POSTGRES_BACKUP_S3_ENABLED \
+      POSTGRES_BACKUP_S3_ENDPOINT \
+      POSTGRES_BACKUP_S3_REGION \
+      POSTGRES_BACKUP_S3_BUCKET \
+      POSTGRES_BACKUP_S3_ACCESS_KEY \
+      POSTGRES_BACKUP_S3_SECRET_KEY \
+      POSTGRES_BACKUP_S3_PREFIX \
+      POSTGRES_BACKUP_S3_KEEP_DAYS \
+      POSTGRES_BACKUP_S3_PATH_STYLE \
+      TZ
+    do
+      eval "value=\${$var_name-}"
+      printf "%s='%s'\n" "$var_name" "$(shell_quote "${value}")"
+      printf "export %s\n" "$var_name"
+    done
 
-cleanup() {
-  rmdir "${lock_dir}" 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
+    printf "exec %s\n" "${backup_script}"
+  } > "${cron_wrapper}"
 
-exec /usr/local/bin/postgres-backup.sh
-EOF
   chmod 700 "${cron_wrapper}"
 }
 

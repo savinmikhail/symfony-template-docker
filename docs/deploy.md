@@ -44,11 +44,14 @@ The rollback workflow:
 `make up-prod` now runs the production flow:
 
 1. validates that production secrets were overridden outside the committed `.env`
-2. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
-3. waits until PHP is ready
-4. installs Composer dependencies only if `vendor/autoload.php` is missing
-5. resets and warms up `var/cache/prod`
-6. runs Doctrine migrations in `prod`
+2. checks host port conflicts and prints ready-to-paste `.env.local` overrides when needed
+3. validates monitoring secrets, prepares Grafana alert provisioning and checks the Loki Docker plugin
+4. `COMPOSE_PROFILES=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d --build`
+5. sends `HUP` to Prometheus so it rereads the mounted config after the deploy
+6. waits until PHP is ready
+7. installs Composer dependencies only if `vendor/autoload.php` is missing
+8. resets and warms up `var/cache/prod`
+9. runs Doctrine migrations in `prod`
 
 The production nginx image builds the Vue/Vite frontend and serves the compiled SPA from `/var/www/app/public`. The Vite `frontend` service is assigned to the `dev` profile in `docker-compose.prod.yml`, so it is not started by `make up-prod`.
 
@@ -64,10 +67,13 @@ Before the first deploy:
 Production note:
 
 - keep `POSTGRES_PASSWORD` and `RABBITMQ_DEFAULT_PASS` overridden outside the committed `.env`
+- set `APP_GRAFANA_TELEGRAM_ENABLED=1`, `APP_GRAFANA_TELEGRAM_BOT_TOKEN` and `APP_GRAFANA_TELEGRAM_CHAT_ID` if Telegram alert routing should be provisioned automatically
 - `make up-prod` fails fast if those vars still use committed placeholders/defaults
-- `make up-monitoring` fails fast if `APP_GRAFANA_ADMIN_PASSWORD` still uses a committed placeholder/default
-- `make up-monitoring` also requires the Docker Loki logging driver plugin (`loki`) to be installed on the host
+- `make up-prod` and `make up-monitoring` fail fast if `APP_GRAFANA_ADMIN_PASSWORD` still uses a committed placeholder/default
+- `make up-prod` and `make up-monitoring` also require the Docker Loki logging driver plugin (`loki`) to be installed on the host
+- `make suggest-free-ports` prints nearby free replacements for occupied `APP_*_PORT` values; `make up-prod` runs the same check automatically before Docker starts
 - `docker-compose.prod.yml` resets `db.ports`, so PostgreSQL is not published on the host in production
+- production persists HTTP request metrics in the `app-http-metrics` named volume mounted at `/var/www/app/var/metrics`
 - Redis, RabbitMQ and monitoring/admin ports are bound to `127.0.0.1` and should be published externally only through a host-level reverse proxy if needed
 - app-level DSNs are assembled inside [app/.env](/home/mikhail/projects/symfony-template-docker/app/.env) from the container env, so they do not need a separate production override
 

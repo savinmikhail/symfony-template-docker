@@ -270,6 +270,8 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - Use `make up-prod` for local verification of the production stack.
 - Use `make up-monitoring` only when the observability stack is actually needed.
 - `make up-prod` fails fast if committed placeholder secrets were not overridden before a production start.
+- `make up-prod` also fails fast on occupied `APP_*_PORT` values and prints ready-to-paste `.env.local` suggestions.
+- `make suggest-free-ports` runs the same port scan on demand without aborting.
 - `make gen-secrets` prints a ready-to-paste `.env.local` block with URL-safe secrets.
 - `make kics` / `make kics-high` run the high-signal KICS infrastructure scan mirrored by the GitHub Actions workflow.
 - `make kics-full` expands the scan to include medium findings such as missing cpu/ram limits.
@@ -287,9 +289,11 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 Scrape configs in `docker/prometheus/prometheus.yml`:
 
 - `prometheus` itself
+- nginx exporter (`nginx-exporter:9113`)
+- Symfony app metrics via `http://nginx:8080/metrics`
 - PostgreSQL exporter (`postgres-exporter:9187`)
-- Redis exporter (`redis-exporter:9121`)
-- RabbitMQ exporter (`rabbitmq-exporter:9419`)
+- PHP-FPM exporter (`php-fpm-exporter:9253`)
+- backup metrics exporter (`backup-metrics-exporter:9100`) in the `prod` profile
 
 ### Dashboards (Grafana)
 
@@ -299,9 +303,10 @@ Provisioned via:
   - `docker/grafana/provisioning/datasources/prometheus.yml`
   - `docker/grafana/provisioning/datasources/loki.yml`
 - Dashboards:
-  - Redis – `docker/grafana/dashboards/redis.json`
-  - RabbitMQ – `docker/grafana/dashboards/rabbitmq.json`
-  - HTTP RPS & latency (via Loki) – `docker/grafana/dashboards/http.json`
+  - Service overview – `docker/grafana/dashboards/service-overview.json`
+  - Logs drilldown – `docker/grafana/dashboards/logs-drilldown.json`
+
+Provisioned alert rules live in `docker/grafana/provisioning/alerting/service-alerts.yml`. Optional Telegram contact points are generated into `tmp/grafana/provisioning/alerting/contactpoints.generated.yml` before `make up-monitoring` / `make up-prod`.
 
 Grafana runs on `127.0.0.1:${APP_GRAFANA_PORT}` (default `3000`). Override `APP_GRAFANA_ADMIN_USER` / `APP_GRAFANA_ADMIN_PASSWORD` in `.env.local` before exposing it anywhere beyond local development.
 

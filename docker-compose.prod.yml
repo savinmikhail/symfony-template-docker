@@ -9,7 +9,8 @@ services:
     image: ${APP_NAME:-symfony-template-docker}-php:prod
     build:
       target: prod
-    volumes: !reset []
+    volumes: !reset
+      - app-http-metrics:/var/www/app/var/metrics
 
   # kics-scan ignore-block
   nginx:
@@ -46,6 +47,7 @@ services:
       POSTGRES_BACKUP_KEEP_DAYS: "${POSTGRES_BACKUP_KEEP_DAYS:-14}"
       POSTGRES_BACKUP_PREFIX: "${POSTGRES_BACKUP_PREFIX:-postgres}"
       POSTGRES_BACKUP_NAME: "${POSTGRES_BACKUP_NAME:-${POSTGRES_DB}}"
+      POSTGRES_BACKUP_METRICS_DIR: /backups/.metrics
       POSTGRES_BACKUP_S3_ENABLED: "${POSTGRES_BACKUP_S3_ENABLED:-0}"
       POSTGRES_BACKUP_S3_ENDPOINT: "${POSTGRES_BACKUP_S3_ENDPOINT:-}"
       POSTGRES_BACKUP_S3_REGION: "${POSTGRES_BACKUP_S3_REGION:-}"
@@ -60,3 +62,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+volumes:
+  app-http-metrics:

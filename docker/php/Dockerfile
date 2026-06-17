@@ -97,7 +97,8 @@ ENV APP_ENV=prod \
 
 COPY --from=build /var/www/app /var/www/app
 
-RUN chown -R www-data:www-data /var/www/app
+RUN mkdir -p /var/www/app/var/metrics \
+ && chown -R www-data:www-data /var/www/app
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q "pong" || exit 1
