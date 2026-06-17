@@ -59,39 +59,15 @@ load_values_from_env_file() {
 }
 
 collect_own_published_ports() {
-  local row published_port
+  local row
 
   while IFS= read -r row; do
     [[ -n ${row} ]] || continue
 
-    published_port=$(printf '%s\n' "${row}" | php -r '
-$row = trim(stream_get_contents(STDIN));
-if ($row === "") {
-    exit(0);
-}
-$decoded = json_decode($row, true);
-if (!is_array($decoded)) {
-    exit(0);
-}
-$publishers = $decoded["Publishers"] ?? [];
-if (!is_array($publishers)) {
-    exit(0);
-}
-foreach ($publishers as $publisher) {
-    if (!is_array($publisher)) {
-        continue;
-    }
-    $port = $publisher["PublishedPort"] ?? null;
-    if (is_int($port) || (is_string($port) && ctype_digit($port))) {
-        echo $port, PHP_EOL;
-    }
-}
-')
-
     while IFS= read -r port; do
       [[ ${port} =~ ^[0-9]+$ ]] || continue
       own_published_ports[$port]=1
-    done <<< "${published_port}"
+    done < <(printf '%s\n' "${row}" | grep -oE '"PublishedPort":[0-9]+' | cut -d: -f2)
   done < <(
     docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml ps --format json 2>/dev/null || true
   )
