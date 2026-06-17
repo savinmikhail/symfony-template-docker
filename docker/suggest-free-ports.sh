@@ -13,6 +13,7 @@ declare -A defaults=()
 declare -A values=()
 declare -A occupied=()
 declare -A reserved=()
+declare -A own_published_ports=()
 
 register_default() {
   local var_name=$1
@@ -57,6 +58,45 @@ load_values_from_env_file() {
   done < <(grep -E '^[[:space:]]*APP_[A-Z0-9_]+_PORT=' "$file" || true)
 }
 
+collect_own_published_ports() {
+  local row published_port
+
+  while IFS= read -r row; do
+    [[ -n ${row} ]] || continue
+
+    published_port=$(printf '%s\n' "${row}" | php -r '
+$row = trim(stream_get_contents(STDIN));
+if ($row === "") {
+    exit(0);
+}
+$decoded = json_decode($row, true);
+if (!is_array($decoded)) {
+    exit(0);
+}
+$publishers = $decoded["Publishers"] ?? [];
+if (!is_array($publishers)) {
+    exit(0);
+}
+foreach ($publishers as $publisher) {
+    if (!is_array($publisher)) {
+        continue;
+    }
+    $port = $publisher["PublishedPort"] ?? null;
+    if (is_int($port) || (is_string($port) && ctype_digit($port))) {
+        echo $port, PHP_EOL;
+    }
+}
+')
+
+    while IFS= read -r port; do
+      [[ ${port} =~ ^[0-9]+$ ]] || continue
+      own_published_ports[$port]=1
+    done <<< "${published_port}"
+  done < <(
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml ps --format json 2>/dev/null || true
+  )
+}
+
 is_port_busy() {
   local port=$1
 
@@ -93,6 +133,7 @@ collect_defaults_from_compose docker-compose.monitoring.yml
 
 load_values_from_env_file .env
 load_values_from_env_file .env.local
+collect_own_published_ports
 
 for var_name in "${!defaults[@]}"; do
   if [[ -z ${values[$var_name]+x} ]]; then
@@ -112,6 +153,9 @@ done < <(printf '%s\n' "${!values[@]}" | sort)
 for var_name in "${!values[@]}"; do
   current_port=${values[$var_name]}
   if is_port_busy "$current_port"; then
+    if [[ -n ${own_published_ports[$current_port]+x} ]]; then
+      continue
+    fi
     occupied[$var_name]=$current_port
   fi
 done
