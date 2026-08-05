@@ -4,7 +4,7 @@
   "tags": ["service", "production", "overview"],
   "timezone": "browser",
   "schemaVersion": 30,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {
     "from": "now-24h",
@@ -525,6 +525,7 @@
     {
       "type": "timeseries",
       "title": "Slowest routes p95",
+      "description": "Rolling 5-minute p95 by route. Low-traffic routes can jump between histogram bucket boundaries; use the current-average panel below to spot sustained endpoint degradation.",
       "gridPos": { "h": 10, "w": 12, "x": 12, "y": 26 },
       "targets": [
         {
@@ -549,8 +550,55 @@
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "mean", "max"],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
         "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Average latency by route (selected range)",
+      "description": "Top routes by mean response time over the dashboard time range. Unlike p95, this remains readable for low-volume endpoints; narrow the time picker to inspect a suspected regression window.",
+      "gridPos": { "h": 10, "w": 18, "x": 0, "y": 36 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "topk(15, (sum by (route, method) (increase(app_http_request_duration_seconds_sum[$__range])) / clamp_min(sum by (route, method) (increase(app_http_request_duration_seconds_count[$__range])), 1)) and on (route, method) (sum by (route, method) (increase(app_http_request_duration_seconds_count[$__range])) > 0))",
+          "legendFormat": "{{method}} {{route}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       }
     }
   ]
