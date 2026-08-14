@@ -214,13 +214,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Traffic: HTTP requests by status class",
+      "title": "Traffic: peak 5m RPS by status class",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (status_class) (rate(app_http_requests_total[5m]))",
+          "expr": "max_over_time((sum by (status_class) (rate(app_http_requests_total[5m])))[$__rate_interval:1m])",
           "legendFormat": "{{status_class}}"
         }
       ],
