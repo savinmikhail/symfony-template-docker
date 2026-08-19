@@ -9,20 +9,19 @@
     "packages-dev": [
         {
             "name": "nikic/php-parser",
-            "version": "v5.7.0",
+            "version": "v5.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nikic/PHP-Parser.git",
-                "reference": "dca41cd15c2ac9d055ad70dbfd011130757d1f82"
+                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/dca41cd15c2ac9d055ad70dbfd011130757d1f82",
-                "reference": "dca41cd15c2ac9d055ad70dbfd011130757d1f82",
+                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
+                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
                 "shasum": ""
             },
             "require": {
-                "ext-ctype": "*",
                 "ext-json": "*",
                 "ext-tokenizer": "*",
                 "php": ">=7.4"
@@ -61,17 +60,17 @@
             ],
             "support": {
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
-                "source": "https://github.com/nikic/PHP-Parser/tree/v5.7.0"
+                "source": "https://github.com/nikic/PHP-Parser/tree/v5.8.0"
             },
-            "time": "2025-12-06T11:56:16+00:00"
+            "time": "2026-07-04T14:30:18+00:00"
         },
         {
             "name": "phpstan/phpstan",
-            "version": "2.1.46",
+            "version": "2.2.8",
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/a193923fc2d6325ef4e741cf3af8c3e8f54dbf25",
-                "reference": "a193923fc2d6325ef4e741cf3af8c3e8f54dbf25",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/e285254e60f33c21902efef4a926ca0987c06804",
+                "reference": "e285254e60f33c21902efef4a926ca0987c06804",
                 "shasum": ""
             },
             "require": {
@@ -93,6 +92,17 @@
             "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ondřej Mirtes"
+                },
+                {
+                    "name": "Markus Staab"
+                },
+                {
+                    "name": "Vincent Langlet"
+                }
             ],
             "description": "PHPStan - PHP Static Analysis Tool",
             "keywords": [
@@ -116,25 +126,25 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-04-01T09:25:14+00:00"
+            "time": "2026-08-04T22:21:45+00:00"
         },
         {
             "name": "rector/rector",
-            "version": "2.3.9",
+            "version": "2.6.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/rectorphp/rector.git",
-                "reference": "917842143fd9f5331a2adefc214b8d7143bd32c4"
+                "reference": "7e46709996a4b3dc59e1d6ecbb6a38ace335bd58"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rectorphp/rector/zipball/917842143fd9f5331a2adefc214b8d7143bd32c4",
-                "reference": "917842143fd9f5331a2adefc214b8d7143bd32c4",
+                "url": "https://api.github.com/repos/rectorphp/rector/zipball/7e46709996a4b3dc59e1d6ecbb6a38ace335bd58",
+                "reference": "7e46709996a4b3dc59e1d6ecbb6a38ace335bd58",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4|^8.0",
-                "phpstan/phpstan": "^2.1.40"
+                "phpstan/phpstan": "^2.2.6"
             },
             "conflict": {
                 "rector/rector-doctrine": "*",
@@ -168,7 +178,7 @@
             ],
             "support": {
                 "issues": "https://github.com/rectorphp/rector/issues",
-                "source": "https://github.com/rectorphp/rector/tree/2.3.9"
+                "source": "https://github.com/rectorphp/rector/tree/2.6.3"
             },
             "funding": [
                 {
@@ -176,20 +186,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-03-16T09:43:55+00:00"
+            "time": "2026-08-18T22:01:18+00:00"
         },
         {
             "name": "savinmikhail/add_named_arguments_rector",
-            "version": "v0.1.25",
+            "version": "v0.1.26",
             "source": {
                 "type": "git",
                 "url": "https://github.com/savinmikhail/AddNamedArgumentsRector.git",
-                "reference": "71aa7a2b1ee93a9f18b12b183979b2b9d214a46e"
+                "reference": "f44b613578560f97a8198fdf49084c44e177e51e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/savinmikhail/AddNamedArgumentsRector/zipball/71aa7a2b1ee93a9f18b12b183979b2b9d214a46e",
-                "reference": "71aa7a2b1ee93a9f18b12b183979b2b9d214a46e",
+                "url": "https://api.github.com/repos/savinmikhail/AddNamedArgumentsRector/zipball/f44b613578560f97a8198fdf49084c44e177e51e",
+                "reference": "f44b613578560f97a8198fdf49084c44e177e51e",
                 "shasum": ""
             },
             "require": {
@@ -232,9 +242,9 @@
             ],
             "support": {
                 "issues": "https://github.com/savinmikhail/AddNamedArgumentsRector/issues",
-                "source": "https://github.com/savinmikhail/AddNamedArgumentsRector/tree/v0.1.25"
+                "source": "https://github.com/savinmikhail/AddNamedArgumentsRector/tree/v0.1.26"
             },
-            "time": "2026-03-19T14:40:48+00:00"
+            "time": "2026-06-14T05:26:08+00:00"
         },
         {
             "name": "symplify/rule-doc-generator-contracts",

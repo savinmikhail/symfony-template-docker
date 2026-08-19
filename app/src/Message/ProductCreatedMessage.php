@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Message;
 
-final class ProductCreatedMessage
+final readonly class ProductCreatedMessage
 {
     public function __construct(
-        public readonly int $id,
-        public readonly string $name,
-        public readonly string $price,
+        public int $id,
+        public string $name,
+        public string $price,
     ) {
     }
 }
-

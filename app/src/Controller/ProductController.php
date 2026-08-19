@@ -9,14 +9,13 @@ use App\Message\ProductCreatedMessage;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 #[Route('/products', name: 'product_')]
 class ProductController extends AbstractController
@@ -28,7 +27,7 @@ class ProductController extends AbstractController
     ): JsonResponse {
         $this->simulateLatencyAndFailures();
 
-        $useCache = random_int(1, 100) <= 60;
+        $useCache = random_int(min: 1, max: 100) <= 60;
 
         if ($useCache) {
             $products = $cache->get(
@@ -36,24 +35,24 @@ class ProductController extends AbstractController
                 function (ItemInterface $item) use ($repository): array {
                     $item->expiresAfter(5);
 
-                    $entities = $repository->findBy([], ['id' => 'DESC'], 50);
+                    $entities = $repository->findBy(criteria: [], orderBy: ['id' => 'DESC'], limit: 50);
 
                     return array_map(
-                        fn (Product $product): array => $this->normalizeProduct($product),
-                        $entities,
+                        callback: $this->normalizeProduct(...),
+                        array: $entities,
                     );
                 },
             );
         } else {
-            $entities = $repository->findBy([], ['id' => 'DESC'], 50);
+            $entities = $repository->findBy(criteria: [], orderBy: ['id' => 'DESC'], limit: 50);
 
             $products = array_map(
-                fn (Product $product): array => $this->normalizeProduct($product),
-                $entities,
+                callback: $this->normalizeProduct(...),
+                array: $entities,
             );
         }
 
-        return $this->json($products);
+        return $this->json(data: $products);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -61,28 +60,28 @@ class ProductController extends AbstractController
     {
         $this->simulateLatencyAndFailures();
 
-        $data = json_decode((string) $request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(json: (string) $request->getContent(), associative: true, flags: JSON_THROW_ON_ERROR);
 
-        if (!isset($data['name'], $data['price']) || !is_string($data['name']) || !is_numeric($data['price'])) {
-            return $this->json(['error' => 'Invalid payload'], Response::HTTP_BAD_REQUEST);
+        if (!isset($data['name'], $data['price']) || !is_string(value: $data['name']) || !is_numeric(value: $data['price'])) {
+            return $this->json(data: ['error' => 'Invalid payload'], status: Response::HTTP_BAD_REQUEST);
         }
 
-        $product = new Product($data['name'], (string) $data['price']);
+        $product = new Product(name: $data['name'], price: (string) $data['price']);
 
         $em->persist($product);
         $em->flush();
 
-        $bus->dispatch(new ProductCreatedMessage($product->getId(), $product->getName(), $product->getPrice()));
+        $bus->dispatch(new ProductCreatedMessage(id: $product->getId(), name: $product->getName(), price: $product->getPrice()));
 
         return $this->json(
-            [
+            data: [
                 'id' => $product->getId(),
                 'name' => $product->getName(),
                 'price' => $product->getPrice(),
-                'createdAt' => $product->getCreatedAt()->format(\DATE_ATOM),
+                'createdAt' => $product->getCreatedAt()->format(format: \DATE_ATOM),
                 'updatedAt' => $product->getUpdatedAt()?->format(\DATE_ATOM),
             ],
-            Response::HTTP_CREATED,
+            status: Response::HTTP_CREATED,
         );
     }
 
@@ -90,20 +89,20 @@ class ProductController extends AbstractController
     {
         $appEnv = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null;
 
-        if ($appEnv === 'test') {
+        if ('test' === $appEnv) {
             return;
         }
 
-        $roll = random_int(1, 100);
+        $roll = random_int(min: 1, max: 100);
 
         if ($roll <= 5) {
-            usleep(random_int(400000, 1200000));
+            usleep(microseconds: random_int(min: 400000, max: 1200000));
 
-            throw new \RuntimeException('Random failure for observability demo');
+            throw new \RuntimeException(message: 'Random failure for observability demo');
         }
 
         if ($roll <= 35) {
-            usleep(random_int(50000, 400000));
+            usleep(microseconds: random_int(min: 50000, max: 400000));
         }
     }
 
@@ -116,7 +115,7 @@ class ProductController extends AbstractController
             'id' => $product->getId(),
             'name' => $product->getName(),
             'price' => $product->getPrice(),
-            'createdAt' => $product->getCreatedAt()->format(\DATE_ATOM),
+            'createdAt' => $product->getCreatedAt()->format(format: \DATE_ATOM),
             'updatedAt' => $product->getUpdatedAt()?->format(\DATE_ATOM),
         ];
     }

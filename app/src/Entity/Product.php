@@ -15,22 +15,16 @@ class Product
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
-    private string $name;
-
-    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
-    private string $price;
-
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    public function __construct(string $name, string $price)
+    public function __construct(#[ORM\Column(length: 255)]
+        private string $name, #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+        private string $price)
     {
-        $this->name = $name;
-        $this->price = $price;
         $this->createdAt = new \DateTimeImmutable();
     }
 
@@ -87,4 +81,3 @@ class Product
         return $this;
     }
 }
-

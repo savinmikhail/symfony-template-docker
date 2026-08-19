@@ -11,10 +11,10 @@ final class ProductApiTest extends WebTestCase
 {
     public function testCreateAndListProducts(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
 
         $payload = [
-            'name' => 'Test product '.uniqid('', true),
+            'name' => 'Test product '.uniqid(more_entropy: true),
             'price' => '9.99',
         ];
 
@@ -22,12 +22,12 @@ final class ProductApiTest extends WebTestCase
             method: 'POST',
             uri: '/products',
             server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode($payload, JSON_THROW_ON_ERROR),
+            content: json_encode(value: $payload, flags: JSON_THROW_ON_ERROR),
         );
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
-        $created = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $created = json_decode(json: $client->getResponse()->getContent(), associative: true, flags: JSON_THROW_ON_ERROR);
 
         self::assertIsArray($created);
         self::assertArrayHasKey('id', $created);
@@ -35,11 +35,11 @@ final class ProductApiTest extends WebTestCase
         self::assertSame($payload['name'], $created['name']);
         self::assertSame($payload['price'], $created['price']);
 
-        $client->request('GET', '/products');
+        $client->request(method: 'GET', uri: '/products');
 
         self::assertResponseIsSuccessful();
 
-        $list = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $list = json_decode(json: $client->getResponse()->getContent(), associative: true, flags: JSON_THROW_ON_ERROR);
 
         self::assertIsArray($list);
         self::assertNotEmpty($list);
@@ -47,7 +47,7 @@ final class ProductApiTest extends WebTestCase
         $found = false;
 
         foreach ($list as $item) {
-            if (!is_array($item) || !array_key_exists('id', $item)) {
+            if (!is_array(value: $item) || !array_key_exists(key: 'id', array: $item)) {
                 continue;
             }
 
@@ -60,4 +60,3 @@ final class ProductApiTest extends WebTestCase
         self::assertTrue($found, 'Created product should be present in products list response.');
     }
 }
-

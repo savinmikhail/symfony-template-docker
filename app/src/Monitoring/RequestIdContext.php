@@ -12,7 +12,7 @@ final class RequestIdContext implements ResetInterface
 
     public function assignNew(): string
     {
-        $this->currentRequestId = bin2hex(random_bytes(16));
+        $this->currentRequestId = bin2hex(string: random_bytes(length: 16));
 
         return $this->currentRequestId;
     }

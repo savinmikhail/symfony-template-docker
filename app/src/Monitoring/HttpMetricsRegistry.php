@@ -52,7 +52,7 @@ final readonly class HttpMetricsRegistry
             '# TYPE app_http_requests_total counter',
         ];
 
-        ksort($state['requests']);
+        ksort(array: $state['requests']);
         foreach ($state['requests'] as $seriesKey => $count) {
             $labels = $this->seriesLabels(seriesKey: $seriesKey);
             $lines[] = sprintf('app_http_requests_total{%s} %d', $this->renderLabels(labels: $labels), (int) $count);
@@ -61,7 +61,7 @@ final readonly class HttpMetricsRegistry
         $lines[] = '# HELP app_http_request_duration_seconds HTTP request duration histogram, partitioned by low-cardinality route labels.';
         $lines[] = '# TYPE app_http_request_duration_seconds histogram';
 
-        ksort($state['duration_count']);
+        ksort(array: $state['duration_count']);
         foreach ($state['duration_count'] as $seriesKey => $count) {
             $labels = $this->seriesLabels(seriesKey: $seriesKey);
 
@@ -93,34 +93,34 @@ final readonly class HttpMetricsRegistry
             );
         }
 
-        return implode("\n", $lines)."\n";
+        return implode(separator: "\n", array: $lines)."\n";
     }
 
     private function withState(callable $mutate): void
     {
         $path = $this->statePath();
-        $directory = \dirname($path);
-        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
-            throw new \RuntimeException(sprintf('Unable to create metrics directory "%s".', $directory));
+        $directory = \dirname(path: $path);
+        if (!is_dir(filename: $directory) && !mkdir(directory: $directory, permissions: 0775, recursive: true) && !is_dir(filename: $directory)) {
+            throw new \RuntimeException(message: sprintf('Unable to create metrics directory "%s".', $directory));
         }
 
-        $handle = fopen($path, 'c+');
+        $handle = fopen(filename: $path, mode: 'c+');
         if (false === $handle) {
-            throw new \RuntimeException(sprintf('Unable to open metrics state "%s".', $path));
+            throw new \RuntimeException(message: sprintf('Unable to open metrics state "%s".', $path));
         }
 
         try {
-            flock($handle, LOCK_EX);
-            $contents = stream_get_contents($handle);
+            flock(stream: $handle, operation: LOCK_EX);
+            $contents = stream_get_contents(stream: $handle);
             $state = $this->decodeState(contents: false === $contents ? '' : $contents);
             $state = $mutate($state);
-            rewind($handle);
-            ftruncate($handle, 0);
-            fwrite($handle, json_encode($state, JSON_THROW_ON_ERROR));
-            fflush($handle);
+            rewind(stream: $handle);
+            ftruncate(stream: $handle, size: 0);
+            fwrite(stream: $handle, data: json_encode(value: $state, flags: JSON_THROW_ON_ERROR));
+            fflush(stream: $handle);
         } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+            flock(stream: $handle, operation: LOCK_UN);
+            fclose(stream: $handle);
         }
     }
 
@@ -130,11 +130,11 @@ final readonly class HttpMetricsRegistry
     private function readState(): array
     {
         $path = $this->statePath();
-        if (!is_file($path)) {
+        if (!is_file(filename: $path)) {
             return $this->emptyState();
         }
 
-        $contents = file_get_contents($path);
+        $contents = file_get_contents(filename: $path);
 
         return $this->decodeState(contents: false === $contents ? '' : $contents);
     }
@@ -144,7 +144,7 @@ final readonly class HttpMetricsRegistry
      */
     private function decodeState(string $contents): array
     {
-        if ('' === trim($contents)) {
+        if ('' === trim(string: $contents)) {
             return $this->emptyState();
         }
 
@@ -154,7 +154,7 @@ final readonly class HttpMetricsRegistry
             return $this->emptyState();
         }
 
-        if (!is_array($decoded)) {
+        if (!is_array(value: $decoded)) {
             return $this->emptyState();
         }
 
@@ -181,12 +181,12 @@ final readonly class HttpMetricsRegistry
 
     private function statePath(): string
     {
-        return rtrim($this->projectDir, '/').'/var/metrics/http.json';
+        return rtrim(string: $this->projectDir, characters: '/').'/var/metrics/http.json';
     }
 
     private function seriesKey(string $route, string $method, string $statusClass): string
     {
-        return implode(self::KEY_SEPARATOR, [$route, $method, $statusClass]);
+        return implode(separator: self::KEY_SEPARATOR, array: [$route, $method, $statusClass]);
     }
 
     /**
@@ -194,7 +194,7 @@ final readonly class HttpMetricsRegistry
      */
     private function seriesLabels(string $seriesKey): array
     {
-        [$route, $method, $statusClass] = array_pad(explode(self::KEY_SEPARATOR, $seriesKey, 3), 3, 'unknown');
+        [$route, $method, $statusClass] = array_pad(array: explode(separator: self::KEY_SEPARATOR, string: $seriesKey, limit: 3), length: 3, value: 'unknown');
 
         return [
             'route' => $route,
@@ -205,7 +205,7 @@ final readonly class HttpMetricsRegistry
 
     private function normalizeRoute(?string $route): string
     {
-        $route = trim((string) $route);
+        $route = trim(string: (string) $route);
         if ('' === $route) {
             return 'unmatched';
         }
@@ -215,7 +215,7 @@ final readonly class HttpMetricsRegistry
 
     private function normalizeMethod(string $method): string
     {
-        $method = strtoupper(trim($method));
+        $method = strtoupper(string: trim(string: $method));
 
         return '' !== $method ? $this->normalizeLabelValue(value: $method) : 'UNKNOWN';
     }
@@ -226,15 +226,15 @@ final readonly class HttpMetricsRegistry
             return 'unknown';
         }
 
-        return sprintf('%dxx', intdiv($statusCode, 100));
+        return sprintf('%dxx', intdiv(num1: $statusCode, num2: 100));
     }
 
     private function normalizeLabelValue(string $value): string
     {
-        $normalized = preg_replace('/[^A-Za-z0-9_.:-]+/', '_', $value) ?? 'unknown';
-        $normalized = trim($normalized, '_');
+        $normalized = preg_replace(pattern: '/[^A-Za-z0-9_.:-]+/', replacement: '_', subject: $value) ?? 'unknown';
+        $normalized = trim(string: $normalized, characters: '_');
 
-        return '' !== $normalized ? substr($normalized, 0, 100) : 'unknown';
+        return '' !== $normalized ? substr(string: $normalized, offset: 0, length: 100) : 'unknown';
     }
 
     /**
@@ -244,10 +244,10 @@ final readonly class HttpMetricsRegistry
     {
         $parts = [];
         foreach ($labels as $name => $value) {
-            $parts[] = sprintf('%s="%s"', $name, str_replace(['\\', "\n", '"'], ['\\\\', '\\n', '\\"'], $value));
+            $parts[] = sprintf('%s="%s"', $name, str_replace(search: ['\\', "\n", '"'], replace: ['\\\\', '\\n', '\\"'], subject: $value));
         }
 
-        return implode(',', $parts);
+        return implode(separator: ',', array: $parts);
     }
 
     /**
@@ -255,7 +255,7 @@ final readonly class HttpMetricsRegistry
      */
     private function numericMap(mixed $value): array
     {
-        if (!is_array($value)) {
+        if (!is_array(value: $value)) {
             return [];
         }
 
@@ -272,7 +272,7 @@ final readonly class HttpMetricsRegistry
      */
     private function floatMap(mixed $value): array
     {
-        if (!is_array($value)) {
+        if (!is_array(value: $value)) {
             return [];
         }
 
@@ -286,11 +286,11 @@ final readonly class HttpMetricsRegistry
 
     private static function formatBucket(float $bucket): string
     {
-        return rtrim(rtrim(sprintf('%.3F', $bucket), '0'), '.');
+        return rtrim(string: rtrim(string: sprintf('%.3F', $bucket), characters: '0'), characters: '.');
     }
 
     private function formatFloat(float $value): string
     {
-        return rtrim(rtrim(sprintf('%.6F', $value), '0'), '.') ?: '0';
+        return rtrim(string: rtrim(string: sprintf('%.6F', $value), characters: '0'), characters: '.') ?: '0';
     }
 }

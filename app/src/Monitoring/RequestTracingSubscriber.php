@@ -37,8 +37,8 @@ final readonly class RequestTracingSubscriber implements EventSubscriberInterfac
         }
 
         $request = $event->getRequest();
-        $request->attributes->set(self::REQUEST_ID_ATTRIBUTE, $this->requestIdContext->assignNew());
-        $request->attributes->set(self::REQUEST_STARTED_AT_ATTRIBUTE, microtime(true));
+        $request->attributes->set(key: self::REQUEST_ID_ATTRIBUTE, value: $this->requestIdContext->assignNew());
+        $request->attributes->set(key: self::REQUEST_STARTED_AT_ATTRIBUTE, value: microtime(as_float: true));
     }
 
     public function onResponse(ResponseEvent $event): void
@@ -48,16 +48,16 @@ final readonly class RequestTracingSubscriber implements EventSubscriberInterfac
         }
 
         $request = $event->getRequest();
-        $requestId = $request->attributes->getString(self::REQUEST_ID_ATTRIBUTE, $this->requestIdContext->getCurrentRequestId() ?? '');
+        $requestId = $request->attributes->getString(key: self::REQUEST_ID_ATTRIBUTE, default: $this->requestIdContext->getCurrentRequestId() ?? '');
         if ('' !== $requestId) {
-            $event->getResponse()->headers->set(self::RESPONSE_HEADER, $requestId);
+            $event->getResponse()->headers->set(key: self::RESPONSE_HEADER, values: $requestId);
         }
 
-        $startedAt = $request->attributes->get(self::REQUEST_STARTED_AT_ATTRIBUTE);
-        $durationMs = is_float($startedAt) || is_int($startedAt)
-            ? (int) round((microtime(true) - (float) $startedAt) * 1000)
+        $startedAt = $request->attributes->get(key: self::REQUEST_STARTED_AT_ATTRIBUTE);
+        $durationMs = is_float(value: $startedAt) || is_int(value: $startedAt)
+            ? (int) round(num: (microtime(as_float: true) - (float) $startedAt) * 1000)
             : null;
-        $route = is_string($request->attributes->get('_route')) ? $request->attributes->get('_route') : null;
+        $route = is_string(value: $request->attributes->get(key: '_route')) ? $request->attributes->get(key: '_route') : null;
 
         if ($this->isOperationalRequest(path: $request->getPathInfo(), route: $route)) {
             return;
@@ -77,6 +77,6 @@ final readonly class RequestTracingSubscriber implements EventSubscriberInterfac
             return true;
         }
 
-        return in_array($path, self::OPERATIONAL_PATHS, true);
+        return in_array(needle: $path, haystack: self::OPERATIONAL_PATHS, strict: true);
     }
 }
