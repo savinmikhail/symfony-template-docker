@@ -1,7 +1,9 @@
 SHELL := /bin/sh
 
 PROD_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.prod.yml
+CI_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.ci.yml
 PROD_MONITORING_COMPOSE := COMPOSE_PROFILES=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml
+PROD_APP_SERVICES := php nginx
 MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
 MONITORING_SERVICES := frontend php nginx db redis rabbitmq nginx-exporter postgres-exporter php-fpm-exporter prometheus grafana loki
 GRAFANA_ALERTING_PROVISIONING_DIR := ./tmp/grafana/provisioning/alerting
@@ -17,8 +19,10 @@ GEN_SECRETS_VARS := POSTGRES_PASSWORD RABBITMQ_DEFAULT_PASS APP_GRAFANA_ADMIN_PA
 
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
+APP_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
 export HOST_UID
 export HOST_GID
+export APP_VERSION
 
 # Загружаем переменные из .env и .env.local (локальный имеет приоритет)
 ifneq (,$(wildcard .env))
@@ -31,7 +35,13 @@ include .env.local
 export
 endif
 
-.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint php-rebuild php phpstan phpat dep-analyse cs-fix rector gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now
+CURRENT_RELEASE_IMAGE_TAG := $(shell git describe --tags --exact-match >/dev/null 2>&1 && git rev-parse HEAD)
+ifeq ($(strip $(APP_IMAGE_TAG)),)
+APP_IMAGE_TAG := $(CURRENT_RELEASE_IMAGE_TAG)
+endif
+export APP_IMAGE_TAG
+
+.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-audit backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
 	docker compose up -d --build
@@ -62,6 +72,7 @@ grafana-alerting-provisioning:
 	@./docker/generate-grafana-alerting.sh $(GRAFANA_ALERTING_CONTACTPOINTS)
 
 up-prod:
+	$(MAKE) check-release-image-tag
 	$(MAKE) check-free-ports
 	$(MAKE) check-prod-env
 	$(MAKE) check-loki-driver
@@ -113,6 +124,15 @@ frontend-lint:
 frontend-stylelint:
 	docker compose exec -T frontend npm run stylelint
 
+frontend-ci-install:
+	cd frontend && npm ci
+
+frontend-ci-quality:
+	cd frontend && npm audit --audit-level=high
+	cd frontend && npm run lint
+	cd frontend && npm run stylelint
+	cd frontend && npm run build
+
 php-rebuild:
 	docker compose up -d --no-deps --build php
 	@echo
@@ -133,8 +153,50 @@ dep-analyse:
 cs-fix:
 	docker compose exec php php tools/php-cs-fixer/vendor/bin/php-cs-fixer fix
 
+cs-check:
+	docker compose exec -T php php tools/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff
+
 rector:
 	docker compose exec php php tools/rector/vendor/bin/rector process
+
+rector-check:
+	docker compose exec -T php php tools/rector/vendor/bin/rector process --dry-run
+
+composer-audit:
+	docker compose exec -T -e COMPOSER_HOME=/tmp/composer php composer audit
+
+backend-quality:
+	$(MAKE) phpstan
+	$(MAKE) phpat
+	$(MAKE) dep-analyse
+	$(MAKE) cs-check
+	$(MAKE) rector-check
+	$(MAKE) composer-audit
+
+ci-pull-php:
+	$(CI_COMPOSE) pull php
+
+ci-up-php:
+	$(CI_COMPOSE) up -d --no-build --no-deps php
+
+ci-up-tests:
+	$(CI_COMPOSE) up -d --no-build db redis rabbitmq php
+
+ci-down:
+	$(CI_COMPOSE) down -v
+
+test:
+	docker compose exec -T php php bin/console --env=test doctrine:database:create --if-not-exists --no-interaction
+	docker compose exec -T php php bin/console --env=test doctrine:migrations:migrate -n
+	docker compose exec -T php php bin/phpunit
+
+quality:
+	$(MAKE) frontend-ci-install
+	$(MAKE) frontend-ci-quality
+	$(MAKE) backend-quality
+	$(MAKE) test
+
+quality-dr: quality
 
 gen-secrets:
 	@SECRET_LENGTH=$(SECRET_LENGTH) APP_SECRET_LENGTH=$(APP_SECRET_LENGTH) $(GEN_SECRETS_SCRIPT) $(GEN_SECRETS_VARS)
@@ -190,3 +252,62 @@ prod-cache-reset:
 backup-prod-now:
 	$(MAKE) check-prod-env
 	$(PROD_COMPOSE) run --rm postgres-backup backup-once
+
+check-release-image-tag:
+	@: "$${APP_IMAGE_TAG:?APP_IMAGE_TAG must be set or HEAD must point exactly at a release tag}"
+	@echo "Production image tag: $(APP_IMAGE_TAG)"
+
+current-prod-image-sha:
+	@container_id="$$(APP_IMAGE_TAG=inspect $(PROD_COMPOSE) ps -q php)"; \
+	if [ -z "$$container_id" ]; then \
+		echo "Production PHP container is not running." >&2; \
+		exit 1; \
+	fi; \
+	image_sha="$$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$$container_id")"; \
+	if [ -z "$$image_sha" ] || [ "$$image_sha" = "<no value>" ]; then \
+		echo "Running production PHP image has no revision label." >&2; \
+		exit 1; \
+	fi; \
+	printf '%s\n' "$$image_sha"
+
+pull-prod-images:
+	$(MAKE) check-release-image-tag
+	$(PROD_COMPOSE) pull $(PROD_APP_SERVICES)
+
+migrate-prod-image:
+	$(MAKE) check-release-image-tag
+	$(PROD_COMPOSE) run --rm --no-deps php php bin/console --env=prod --no-debug doctrine:migrations:migrate -n
+
+switch-prod-app:
+	$(MAKE) check-release-image-tag
+	$(PROD_MONITORING_COMPOSE) up -d --no-deps --pull never --wait --wait-timeout 90 $(PROD_APP_SERVICES)
+
+smoke-prod:
+	@attempt=1; \
+	while [ "$$attempt" -le 10 ]; do \
+		if $(PROD_COMPOSE) exec -T nginx wget -q -O /dev/null http://127.0.0.1:8080/metrics; then \
+			echo "Production HTTP smoke passed."; \
+			exit 0; \
+		fi; \
+		attempt=$$((attempt + 1)); \
+		sleep 2; \
+	done; \
+	echo "Production HTTP smoke failed." >&2; \
+	exit 1
+
+deploy-prod:
+	$(MAKE) check-prod-env
+	$(MAKE) check-loki-driver
+	$(MAKE) check-monitoring-env
+	$(MAKE) pull-prod-images
+	$(MAKE) migrate-prod-image
+	$(MAKE) switch-prod-app
+	$(MAKE) smoke-prod
+
+rollback-prod:
+	$(MAKE) check-prod-env
+	$(MAKE) check-loki-driver
+	$(MAKE) check-monitoring-env
+	$(MAKE) pull-prod-images
+	$(MAKE) switch-prod-app
+	$(MAKE) smoke-prod

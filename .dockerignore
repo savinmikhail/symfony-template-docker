@@ -1,8 +1,16 @@
 .git
+.github
 .idea
+.vscode
 .env.local
+app/.env.local
 app/var
 app/vendor
+app/tools/*/vendor
 frontend/dist
 frontend/node_modules
+graphify-out
+tmp
+var
 var/backups
+*.log

@@ -1,0 +1,16 @@
+# CI override: run the exact self-contained PHP image published for this commit.
+services:
+  php:
+    image: "${APP_CI_PHP_IMAGE:-ghcr.io/msavin-mentoring/symfony-template-docker-php-ci}:${APP_CI_IMAGE_TAG:?APP_CI_IMAGE_TAG must be set}"
+    build:
+      target: ci
+    volumes: !reset []
+
+  db:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  rabbitmq:
+    ports: !reset []

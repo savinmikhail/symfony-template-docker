@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    tags: ['*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-php-image:
+    name: CI PHP image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish CI PHP image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          target: ci
+          push: true
+          tags: ghcr.io/${{ github.repository }}-php-ci:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: |
+            type=gha,scope=template-php-ci
+            type=registry,ref=ghcr.io/${{ github.repository }}-php-ci:buildcache
+            type=registry,ref=ghcr.io/${{ github.repository }}-php:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}-php-ci:buildcache,mode=max
+
+  backend-quality:
+    name: Backend quality
+    needs: ci-php-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions: { contents: read, packages: read }
+    env:
+      COMPOSE_PROJECT_NAME: symfony-template
+      APP_CI_PHP_IMAGE: ghcr.io/${{ github.repository }}-php-ci
+      APP_CI_IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: make ci-pull-php
+      - run: make ci-up-php
+      - run: make backend-quality
+      - if: failure()
+        run: docker compose logs --no-color php
+      - if: always()
+        run: make ci-down
+
+  backend-tests:
+    name: Backend tests
+    needs: ci-php-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: read, packages: read }
+    env:
+      COMPOSE_PROJECT_NAME: symfony-template
+      APP_CI_PHP_IMAGE: ghcr.io/${{ github.repository }}-php-ci
+      APP_CI_IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: make ci-pull-php
+      - run: make ci-up-tests
+      - run: make test
+      - if: failure()
+        run: docker compose logs --no-color db redis rabbitmq php
+      - if: always()
+        run: make ci-down
+
+  frontend-quality:
+    name: Frontend quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: make frontend-ci-install
+      - run: make frontend-ci-quality
+
+  production-images:
+    name: Production image (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: { contents: read, packages: write }
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: php, file: docker/php/Dockerfile, target: prod, cache: template-php-prod }
+          - { name: nginx, file: docker/nginx/Dockerfile, target: prod, cache: template-nginx-prod }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build production ${{ matrix.name }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          tags: ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+          cache-from: |
+            type=gha,scope=${{ matrix.cache }}
+            ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache', github.repository, matrix.name) || '' }}
+          cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache,mode=max', github.repository, matrix.name) || format('type=gha,scope={0},mode=max', matrix.cache) }}
+
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, production-images]
+    permissions: { contents: read, packages: read }
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

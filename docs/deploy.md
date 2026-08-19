@@ -1,94 +1,62 @@
 # Deploy
 
-## Manual Deploy
+Production releases are tag-based and use immutable images from GitHub Container Registry. A regular deploy never rebuilds application code on the production host.
 
-Production deploy is manual via GitHub Actions `workflow_dispatch`.
+## Release flow
 
-Workflow file:
-- [deploy.yml](/home/mikhail/projects/symfony-template-docker/.github/workflows/deploy.yml)
+`make tag` creates and pushes the next patch tag. The tag starts the `CI` workflow:
 
-The workflow:
+1. the self-contained PHP CI image is built and published once;
+2. backend quality and backend tests pull that exact image and run in parallel;
+3. frontend checks run independently;
+4. production `php` and `nginx` images build once in parallel and are published under the commit SHA;
+5. `Deploy` is the final job in the same workflow graph and starts only after all required jobs succeed;
+6. production pulls the exact SHA, runs backward-compatible migrations, switches the stateless containers, and performs an HTTP smoke check.
 
-1. connects to the server over SSH
-2. switches repo to the requested git tag
-3. runs `make up-prod`
+The reusable deploy workflow can also be started manually with a previously published tag. Manual dispatch is an operator override and does not rebuild images.
 
-Deploys are intentionally tag-based so rollback can target a previous release tag.
+## Image names
 
-## Manual Rollback
+The template defaults to:
 
-Rollback is a separate manual GitHub Actions workflow.
+- `ghcr.io/msavin-mentoring/symfony-template-docker-php:<commit-sha>`;
+- `ghcr.io/msavin-mentoring/symfony-template-docker-nginx:<commit-sha>`.
 
-Workflow file:
-- [rollback.yml](/home/mikhail/projects/symfony-template-docker/.github/workflows/rollback.yml)
+When creating a repository from this template, replace the default values through `APP_PHP_IMAGE` and `APP_NGINX_IMAGE`, or update `docker-compose.prod.yml` to use the new repository name. `APP_IMAGE_TAG` is always the immutable commit SHA selected by the workflow.
 
-The rollback workflow:
+## Automatic and manual rollback
 
-1. connects to the server over SSH
-2. fetches tags
-3. finds the tag immediately before the provided `current_tag`
-4. checks out that previous tag
-5. runs `make up-prod`
+Before switching containers, deploy reads the OCI revision label from the currently running PHP image. If deployment or the smoke check fails, it checks out that previous revision and starts the already published images again.
 
-## Required GitHub Secrets
+The manual `Rollback` workflow resolves the tag preceding `current_tag`, validates that it belongs to `main`, and switches to that tag's existing images. Neither rollback path rebuilds code. Database migrations are not reverted, so production migrations must be backward-compatible with the previous application version.
 
-- `DEPLOY_HOST`: production server hostname or IP
-- `DEPLOY_PORT`: SSH port, usually `22`
-- `DEPLOY_USER`: SSH user on the server
-- `DEPLOY_SSH_KEY`: private key for deploy access
-- `DEPLOY_PATH`: absolute path to the checked out repo on the server
-- `DEPLOY_HOST_FINGERPRINT`: SSH host fingerprint for verification
+## Required GitHub configuration
 
-## What `make up-prod` does
+The `production` GitHub Environment must contain:
 
-`make up-prod` now runs the production flow:
+- `DEPLOY_HOST`;
+- `DEPLOY_PORT`;
+- `DEPLOY_USER`;
+- `DEPLOY_SSH_KEY`;
+- `DEPLOY_PATH`;
+- `DEPLOY_HOST_FINGERPRINT`.
 
-1. validates that production secrets were overridden outside the committed `.env`
-2. checks host port conflicts and prints ready-to-paste `.env.local` overrides when needed
-3. validates monitoring secrets, prepares Grafana alert provisioning and checks the Loki Docker plugin
-4. `COMPOSE_PROFILES=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d --build`
-5. sends `HUP` to Prometheus so it rereads the mounted config after the deploy
-6. waits until PHP is ready
-7. installs Composer dependencies only if `vendor/autoload.php` is missing
-8. resets and warms up `var/cache/prod`
-9. runs Doctrine migrations in `prod`
+`GITHUB_TOKEN` is supplied automatically and is used to publish and pull packages from the repository's GHCR namespace.
 
-The production nginx image builds the Vue/Vite frontend and serves the compiled SPA from `/var/www/app/public`. The Vite `frontend` service is assigned to the `dev` profile in `docker-compose.prod.yml`, so it is not started by `make up-prod`.
+## Production host
 
-## First Production Setup
+Before the first release:
 
-Before the first deploy:
+1. clone the repository to `DEPLOY_PATH`;
+2. install Docker, Docker Compose, and the Docker Loki logging driver;
+3. configure `.env.local` and `app/.env.local` with production secrets;
+4. ensure the deploy user can run Docker and read the repository's GHCR packages;
+5. start persistent infrastructure services and bootstrap the first labeled application images.
 
-1. ensure the repo is cloned on the server at `DEPLOY_PATH`
-2. ensure Docker and Docker Compose are installed
-3. ensure `.env` / `.env.local` or equivalent secrets are configured on the server
-4. ensure the deploy user can run Docker commands
+The regular `make deploy-prod` path only pulls `php` and `nginx`, runs migrations from the new PHP image, switches those services, and checks `/metrics`. PostgreSQL, Redis, RabbitMQ, and monitoring services are not rebuilt during an application release.
 
-Production note:
+The first migration from locally built legacy images requires an operator bootstrap because those images do not contain the `org.opencontainers.image.revision` label used to identify the rollback target.
 
-- keep `POSTGRES_PASSWORD` and `RABBITMQ_DEFAULT_PASS` overridden outside the committed `.env`
-- set `APP_GRAFANA_TELEGRAM_ENABLED=1`, `APP_GRAFANA_TELEGRAM_BOT_TOKEN` and `APP_GRAFANA_TELEGRAM_CHAT_ID` if Telegram alert routing should be provisioned automatically
-- `make up-prod` fails fast if those vars still use committed placeholders/defaults
-- `make up-prod` and `make up-monitoring` fail fast if `APP_GRAFANA_ADMIN_PASSWORD` still uses a committed placeholder/default
-- `make up-prod` and `make up-monitoring` also require the Docker Loki logging driver plugin (`loki`) to be installed on the host
-- `make suggest-free-ports` prints nearby free replacements for occupied `APP_*_PORT` values; `make up-prod` runs the same check automatically before Docker starts
-- `docker-compose.prod.yml` resets `db.ports`, so PostgreSQL is not published on the host in production
-- production persists HTTP request metrics in the `app-http-metrics` named volume mounted at `/var/www/app/var/metrics`
-- Redis, RabbitMQ and monitoring/admin ports are bound to `127.0.0.1` and should be published externally only through a host-level reverse proxy if needed
-- app-level DSNs are assembled inside [app/.env](/home/mikhail/projects/symfony-template-docker/app/.env) from the container env, so they do not need a separate production override
+## Local production-like start
 
-## Notes
-
-- Production must be started via `make up-prod`, not `make up`
-- `make up` uses the `dev` PHP target with host UID/GID remapping and starts the Vite dev server
-- `make up-prod` uses the `prod` targets for both `php` and `nginx`
-- production compose removes bind mounts for application code so runtime matches the built image
-
-## Rollback
-
-Fast rollback is currently:
-
-1. trigger the rollback workflow with the currently deployed tag
-2. let the workflow resolve the previous tag and run `make up-prod`
-
-Database rollback is not automated here. If a deploy includes destructive data changes, use a DB backup before rollout.
+`make up-prod APP_IMAGE_TAG=<sha>` retains the full-stack production-like bootstrap path. It validates secrets and host ports, prepares monitoring, and may build locally. Automated releases use `make deploy-prod` instead.

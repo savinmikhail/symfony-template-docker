@@ -1,8 +1,8 @@
-# Symfony 7.3 Docker Template
+# Symfony 7.4 Docker Template
 
-This repository is a **template** for Symfony 7.3 services with a small Vue SPA running in Docker:
+This repository is a **template** for Symfony 7.4 services with a small Vue SPA running in Docker:
 
-- PHP‑FPM 8.4 (Alpine) with Symfony 7.3
+- PHP‑FPM 8.4 (Alpine) with Symfony 7.4
 - Vue 3 + Vite frontend for a quick SPA start
 - Nginx as HTTP entrypoint and production static asset server
 - PostgreSQL 16
@@ -19,7 +19,7 @@ The goal is to provide a **production‑like environment** for local development
 
 ## Project structure
 
-- `app/` – Symfony application (Symfony 7.3 skeleton)
+- `app/` – Symfony application (Symfony 7.4 skeleton)
   - `src/`
     - `Entity/Product.php` – simple `Product` entity
     - `Repository/ProductRepository.php`
@@ -260,8 +260,7 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 
 - Installed as dev dependency in `app/composer.json`.
 - Config: `app/phpunit.dist.xml`.
-- Run inside PHP container:
-  - `make php` → `php bin/phpunit`
+- Run through `make test`; the target creates the test database, applies test migrations, and executes PHPUnit inside the PHP container.
 
 ---
 
@@ -275,9 +274,9 @@ Isolated via `bamarni/composer-bin-plugin` with target directory `tools`:
 - `make gen-secrets` prints a ready-to-paste `.env.local` block with URL-safe secrets.
 - `make kics` / `make kics-high` run the high-signal KICS infrastructure scan mirrored by the GitHub Actions workflow.
 - `make kics-full` expands the scan to include medium findings such as missing cpu/ram limits.
-- Production overrides switch `php` to the `prod` target, build a dedicated `nginx` image, and remove bind mounts for app code.
+- CI builds immutable production `php` and `nginx` images once in parallel and publishes them to GHCR under the commit SHA; regular deploys only pull and switch those images.
 - The production `nginx` image contains the compiled SPA; the `frontend` dev service is not started by `make up-prod`.
-- GitHub Actions deploys are tag-based and include a separate rollback workflow.
+- GitHub Actions deploys are tag-based, shown as the final job in the CI graph, and include automatic plus manual rollback to already published images.
 - Details: [docs/deploy.md](/home/mikhail/projects/symfony-template-docker/docs/deploy.md)
 
 ---

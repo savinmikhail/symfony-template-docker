@@ -64,6 +64,34 @@ USER www-data
 CMD ["php-fpm"]
 
 
+# === Self-contained image for CI (application code + development dependencies) ===
+FROM php-base AS ci
+
+ENV APP_ENV=test \
+    APP_DEBUG=1 \
+    COMPOSER_HOME=/tmp/composer
+
+# Keep the expensive dependency layer independent from application source changes.
+COPY app/composer.json app/composer.lock ./
+COPY app/tools/composer-dependency-analyser/composer.json app/tools/composer-dependency-analyser/composer.lock ./tools/composer-dependency-analyser/
+COPY app/tools/php-cs-fixer/composer.json app/tools/php-cs-fixer/composer.lock ./tools/php-cs-fixer/
+COPY app/tools/phpat/composer.json app/tools/phpat/composer.lock ./tools/phpat/
+COPY app/tools/phpstan/composer.json app/tools/phpstan/composer.lock ./tools/phpstan/
+COPY app/tools/rector/composer.json app/tools/rector/composer.lock ./tools/rector/
+
+RUN composer install --prefer-dist --no-progress --no-interaction --no-scripts
+
+COPY app ./
+
+RUN composer dump-autoload --no-interaction \
+ && mkdir -p /tmp/composer \
+ && chown -R www-data:www-data /var/www/app /tmp/composer
+
+USER www-data
+
+CMD ["php-fpm"]
+
+
 # === Build image for production (composer install, cache warmup) ===
 FROM php-base AS build
 
