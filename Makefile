@@ -41,7 +41,7 @@ APP_IMAGE_TAG := $(CURRENT_RELEASE_IMAGE_TAG)
 endif
 export APP_IMAGE_TAG
 
-.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-audit backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image switch-prod-app smoke-prod deploy-prod rollback-prod
+.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
 	docker compose up -d --build
@@ -162,16 +162,30 @@ rector:
 rector-check:
 	docker compose exec -T php php tools/rector/vendor/bin/rector process --dry-run
 
+composer-validate:
+	docker compose exec -T -e COMPOSER_HOME=/tmp/composer php composer validate --strict --no-check-publish
+
 composer-audit:
 	docker compose exec -T -e COMPOSER_HOME=/tmp/composer php composer audit
 
+prod-di-validate:
+	docker compose exec -T -e APP_ENV=prod -e APP_DEBUG=0 php php bin/console lint:container --env=prod --no-debug
+
+doctrine-schema-validate:
+	docker compose exec -T -e APP_ENV=test -e APP_DEBUG=1 php php bin/console doctrine:database:create --env=test --if-not-exists --no-interaction
+	docker compose exec -T -e APP_ENV=test -e APP_DEBUG=1 php php bin/console doctrine:migrations:migrate --env=test --no-interaction
+	docker compose exec -T -e APP_ENV=test -e APP_DEBUG=1 php php bin/console doctrine:schema:validate --env=test --skip-sync --no-interaction
+	docker compose exec -T -e APP_ENV=test -e APP_DEBUG=1 php php bin/console doctrine:migrations:up-to-date --env=test --no-interaction
+
 backend-quality:
+	$(MAKE) composer-validate
+	$(MAKE) composer-audit
 	$(MAKE) phpstan
 	$(MAKE) phpat
 	$(MAKE) dep-analyse
 	$(MAKE) cs-check
 	$(MAKE) rector-check
-	$(MAKE) composer-audit
+	$(MAKE) prod-di-validate
 
 ci-pull-php:
 	$(CI_COMPOSE) pull php
@@ -188,6 +202,7 @@ ci-down:
 test:
 	docker compose exec -T php php bin/console --env=test doctrine:database:create --if-not-exists --no-interaction
 	docker compose exec -T php php bin/console --env=test doctrine:migrations:migrate -n
+	$(MAKE) doctrine-schema-validate
 	docker compose exec -T php php bin/phpunit
 
 quality:
