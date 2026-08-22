@@ -218,10 +218,23 @@ gen-secrets:
 
 tag:
 	@set -eu; \
-	if [ -n "$$(git status --porcelain)" ]; then \
-		echo "Working tree is dirty. Commit or stash changes before tagging." >&2; \
+	CURRENT_BRANCH=$$(git branch --show-current); \
+	if [ "$$CURRENT_BRANCH" != "main" ]; then \
+		echo "Releases must be created from main; current branch is $$CURRENT_BRANCH." >&2; \
 		exit 1; \
 	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Release tags only include committed changes. Commit or stash the dirty working tree first." >&2; \
+		exit 1; \
+	fi
+	$(MAKE) quality
+	@set -eu; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Quality changed the working tree. Review and commit those changes before tagging." >&2; \
+		exit 1; \
+	fi; \
+	git push origin main; \
+	git fetch origin --tags --prune; \
 	LATEST_TAG=$$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n 1); \
 	if [ -z "$$LATEST_TAG" ]; then \
 		LATEST_TAG="v0.0.0"; \
