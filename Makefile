@@ -203,7 +203,7 @@ test:
 	docker compose exec -T php php bin/console --env=test doctrine:database:create --if-not-exists --no-interaction
 	docker compose exec -T php php bin/console --env=test doctrine:migrations:migrate -n
 	$(MAKE) doctrine-schema-validate
-	docker compose exec -T php php bin/phpunit
+	docker compose exec -T -e APP_ENV=test -e APP_DEBUG=1 php php bin/phpunit
 
 quality:
 	$(MAKE) frontend-ci-install
