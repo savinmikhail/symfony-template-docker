@@ -1,3 +1,5 @@
+# KICS: crond must start as root to install and run the generated backup schedule.
+# kics-scan ignore-line
 FROM alpine:3.21
 
 RUN apk add --no-cache \
