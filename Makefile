@@ -41,7 +41,7 @@ APP_IMAGE_TAG := $(CURRENT_RELEASE_IMAGE_TAG)
 endif
 export APP_IMAGE_TAG
 
-.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image switch-prod-app smoke-prod deploy-prod rollback-prod
+.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
 	docker compose up -d --build
@@ -306,6 +306,10 @@ migrate-prod-image:
 	$(MAKE) check-release-image-tag
 	$(PROD_COMPOSE) run --rm --no-deps php php bin/console --env=prod --no-debug doctrine:migrations:migrate -n
 
+rollout-prod-postgres-backup:
+	$(PROD_MONITORING_COMPOSE) build postgres-backup
+	$(PROD_MONITORING_COMPOSE) up -d --no-deps --wait --wait-timeout 90 postgres-backup
+
 switch-prod-app:
 	$(MAKE) check-release-image-tag
 	$(PROD_MONITORING_COMPOSE) up -d --no-deps --pull never --wait --wait-timeout 90 $(PROD_APP_SERVICES)
@@ -329,6 +333,7 @@ deploy-prod:
 	$(MAKE) check-monitoring-env
 	$(MAKE) pull-prod-images
 	$(MAKE) migrate-prod-image
+	$(MAKE) rollout-prod-postgres-backup
 	$(MAKE) switch-prod-app
 	$(MAKE) smoke-prod
 
