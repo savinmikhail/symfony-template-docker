@@ -158,7 +158,8 @@ jobs:
 
   deploy:
     name: Deploy
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    # The template publishes release tags but has no production target of its own.
+    if: github.repository != 'savinmikhail/symfony-template-docker' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality, production-images]
     permissions: { contents: read, packages: read }
     uses: ./.github/workflows/deploy.yml
