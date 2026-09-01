@@ -13,6 +13,12 @@
 - Store secrets in `app/.env.local`; never commit real credentials.
 - Run repository checks sequentially when they touch shared Docker services or the same database/container state.
 
+## Production data access
+
+- Pass production SQL on stdin through `make prod-query`; generated services must set their own `PROD_SSH_HOST` and `PROD_DEPLOY_PATH` defaults.
+- The dedicated `llm` PostgreSQL role is local-socket-only, read-only, connection-limited, and has short query and lock timeouts.
+- `prod-query` rejects backslashes so psql client-side meta-commands cannot reach production.
+
 ## Local Instructions
 - Backend-specific guidance lives in [app/AGENTS.md](app/AGENTS.md).
 - Backend module overviews live in `app/src/*/README.md`; start from [app/AGENTS.md](app/AGENTS.md) for the index.

@@ -1,0 +1,27 @@
+\set ON_ERROR_STOP on
+
+SELECT format(
+  'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 3',
+  'llm'
+)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_catalog.pg_roles
+  WHERE rolname = 'llm'
+) \gexec
+
+ALTER ROLE llm LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 3;
+ALTER ROLE llm SET default_transaction_read_only = on;
+ALTER ROLE llm SET statement_timeout = '30s';
+ALTER ROLE llm SET lock_timeout = '5s';
+ALTER ROLE llm SET idle_in_transaction_session_timeout = '60s';
+ALTER ROLE llm SET search_path = pg_catalog, public;
+
+SELECT format('GRANT CONNECT ON DATABASE %I TO llm', current_database()) \gexec
+GRANT USAGE ON SCHEMA public TO llm;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO llm;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO llm;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO llm;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO llm;
+
+COMMENT ON ROLE llm IS 'Read-only application access for local analysis over SSH';

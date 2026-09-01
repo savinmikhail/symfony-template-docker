@@ -20,6 +20,10 @@ GEN_SECRETS_VARS := POSTGRES_PASSWORD RABBITMQ_DEFAULT_PASS APP_GRAFANA_ADMIN_PA
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
 APP_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
+READONLY_POSTGRES_USER ?= llm
+PROD_SSH_HOST ?=
+PROD_DEPLOY_PATH ?=
+SSH ?= ssh
 export HOST_UID
 export HOST_GID
 export APP_VERSION
@@ -41,7 +45,7 @@ APP_IMAGE_TAG := $(CURRENT_RELEASE_IMAGE_TAG)
 endif
 export APP_IMAGE_TAG
 
-.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
+.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod shell-postgres provision-readonly-role prod-query prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
 	docker compose up -d --build
@@ -84,6 +88,7 @@ up-prod:
 	$(MAKE) composer-install-prod
 	$(MAKE) prod-cache-reset
 	$(MAKE) dmm-prod
+	$(MAKE) provision-readonly-role
 	@echo
 	@echo "Production application is available at: http://localhost:$(APP_HTTP_PORT)/"
 
@@ -273,6 +278,25 @@ dmm:
 dmm-prod:
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug doctrine:migration:migrate -n
 
+shell-postgres:
+	docker compose exec -T db psql -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-app}
+
+provision-readonly-role:
+	docker compose exec -T db psql -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-app} -f - < docker/postgres/init/002-readonly-role.sql
+
+prod-query:
+	@set -eu; \
+	test -n "$(PROD_SSH_HOST)" || { echo 'Set PROD_SSH_HOST for this service.' >&2; exit 2; }; \
+	test -n "$(PROD_DEPLOY_PATH)" || { echo 'Set PROD_DEPLOY_PATH for this service.' >&2; exit 2; }; \
+	sql_file="$$(mktemp)"; \
+	trap 'rm -f "$$sql_file"' EXIT INT TERM; \
+	cat > "$$sql_file"; \
+	if LC_ALL=C grep -Fq '\' "$$sql_file"; then \
+		echo 'Backslashes are not allowed in agent SQL because psql treats them as client-side meta-commands.' >&2; \
+		exit 7; \
+	fi; \
+	{ printf '%s\n' '\set ON_ERROR_STOP on'; cat "$$sql_file"; } | $(SSH) -T "$(PROD_SSH_HOST)" 'make -s -C "$(PROD_DEPLOY_PATH)" shell-postgres POSTGRES_USER="$(READONLY_POSTGRES_USER)"'
+
 prod-cache-reset:
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:clear --no-warmup
 	$(PROD_COMPOSE) exec -T php php bin/console --env=prod --no-debug cache:warmup
@@ -333,6 +357,7 @@ deploy-prod:
 	$(MAKE) check-monitoring-env
 	$(MAKE) pull-prod-images
 	$(MAKE) migrate-prod-image
+	$(MAKE) provision-readonly-role
 	$(MAKE) rollout-prod-postgres-backup
 	$(MAKE) switch-prod-app
 	$(MAKE) smoke-prod

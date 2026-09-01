@@ -107,6 +107,7 @@ services:
        # clean tuned config loaded via command
       - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init/002-readonly-role.sql:/docker-entrypoint-initdb.d/002-readonly-role.sql:ro
     command: >
       postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
