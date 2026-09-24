@@ -14,6 +14,28 @@ docker build \
   --file "${root_dir}/docker/postgres-backup/Dockerfile" \
   "${root_dir}" >/dev/null
 
+created_root_env_file=0
+created_app_env_file=0
+cleanup_env_files() {
+  if [ "${created_root_env_file}" -eq 1 ]; then
+    rm -f "${root_dir}/.env.local"
+  fi
+  if [ "${created_app_env_file}" -eq 1 ]; then
+    rm -f "${root_dir}/app/.env.local"
+  fi
+}
+if [ ! -f "${root_dir}/.env.local" ]; then
+  : > "${root_dir}/.env.local"
+  created_root_env_file=1
+fi
+if [ ! -f "${root_dir}/app/.env.local" ]; then
+  : > "${root_dir}/app/.env.local"
+  created_app_env_file=1
+fi
+if [ "${created_root_env_file}" -eq 1 ] || [ "${created_app_env_file}" -eq 1 ]; then
+  trap cleanup_env_files EXIT HUP INT TERM
+fi
+
 image_tag_variables=$(sed -nE 's/.*\$\{([A-Z_][A-Z0-9_]*_IMAGE_TAG)(:[^}]*)?\}.*/\1/p' \
   "${root_dir}/docker-compose.yml" "${root_dir}/docker-compose.prod.yml" | sort -u)
 for variable in ${image_tag_variables}; do
