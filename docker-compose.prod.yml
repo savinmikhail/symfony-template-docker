@@ -30,6 +30,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      # BusyBox crond calls initgroups() before starting root's scheduled job.
+      - SETGID
     build:
       context: .
       dockerfile: docker/postgres-backup/Dockerfile

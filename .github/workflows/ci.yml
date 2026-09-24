@@ -115,6 +115,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - run: make postgres-backup-test
       - run: make kics-high
 
   production-images:
