@@ -12,6 +12,12 @@ KICS_IMAGE ?= checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a70
 KICS_EXCLUDE_PATHS ?= /path/app/vendor,/path/frontend/node_modules,/path/app/tools
 KICS_HIGH_EXCLUDE_SEVERITIES ?= info,trace,low,medium
 KICS_FULL_EXCLUDE_SEVERITIES ?= info,trace
+DOCKER_AUDIT_DOCKERFILE ?= docker/php/Dockerfile
+DOCKER_AUDIT_TARGET ?= prod
+DOCKER_AUDIT_IMAGE ?= symfony-template-audit:local
+DOCKER_AUDIT_CONTEXT ?= .
+DOCKER_AUDIT_DIR ?=
+DOCKER_AUDIT_BUILD_ARGS ?=
 SECRET_LENGTH ?= 32
 APP_SECRET_LENGTH ?= 64
 GEN_SECRETS_SCRIPT := ./docker/generate-secrets.sh
@@ -45,7 +51,7 @@ APP_IMAGE_TAG := $(CURRENT_RELEASE_IMAGE_TAG)
 endif
 export APP_IMAGE_TAG
 
-.PHONY: up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod shell-postgres provision-readonly-role prod-query prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
+.PHONY: docker-image-audit up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod shell-postgres provision-readonly-role prod-query prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
 	docker compose up -d --build
@@ -55,6 +61,14 @@ up:
 	@echo
 	@echo "Application is available at: http://localhost:$(APP_HTTP_PORT)/"
 	@echo "Frontend is available at: http://localhost:$(APP_FRONTEND_PORT)/"
+
+docker-image-audit:
+	DOCKER_AUDIT_DOCKERFILE="$(DOCKER_AUDIT_DOCKERFILE)" \
+	DOCKER_AUDIT_TARGET="$(DOCKER_AUDIT_TARGET)" \
+	DOCKER_AUDIT_IMAGE="$(DOCKER_AUDIT_IMAGE)" \
+	DOCKER_AUDIT_CONTEXT="$(DOCKER_AUDIT_CONTEXT)" \
+	DOCKER_AUDIT_DIR="$(DOCKER_AUDIT_DIR)" \
+	./docker/audit-image-build.sh $(DOCKER_AUDIT_BUILD_ARGS)
 
 suggest-free-ports:
 	./docker/suggest-free-ports.sh
@@ -115,7 +129,7 @@ composer-install:
 	docker compose exec -T -u $(HOST_UID):$(HOST_GID) php sh -lc 'mkdir -p vendor && composer install --no-interaction --prefer-dist'
 
 composer-install-prod:
-	$(PROD_COMPOSE) exec -T php sh -lc 'if [ ! -f vendor/autoload.php ]; then composer install --no-dev --prefer-dist --no-interaction --classmap-authoritative; fi'
+	$(PROD_COMPOSE) exec -T php sh -lc 'if [ -f vendor/autoload.php ]; then echo "Production dependencies are baked into the image."; else echo "Production image is missing vendor/autoload.php; rebuild and publish it from the Dockerfile." >&2; exit 1; fi'
 
 frontend-install:
 	docker compose exec -T frontend npm install

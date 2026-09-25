@@ -1,26 +1,21 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-FROM php:8.4-fpm AS php-base
+FROM php:8.4.25-fpm-trixie@sha256:223115611852f585846b5d30f0cd95de8af9b486ca3bf310174a143704fc71e3 AS php-runtime
 
 WORKDIR /var/www/app
 
-# System dependencies
+# Runtime packages needed by the image, including the FPM health check.
 # kics-scan ignore-line
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-    bash \
-    git \
     tzdata \
-    curl \
     libfcgi-bin \
-    zip \
-    unzip \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/www/app \
  && chown -R www-data:www-data /var/www/app
 
-# Use mlocati/docker-php-extension-installer to install PHP extensions
-COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
+# Use a versioned, immutable multi-platform extension installer.
+COPY --from=mlocati/php-extension-installer:2.12.0@sha256:1afade3e29cfc97362cf5885e5ac333bf2faab1146cb28ebbb59b17e68f87e88 /usr/bin/install-php-extensions /usr/local/bin/
 
 RUN chmod +x /usr/local/bin/install-php-extensions && \
     install-php-extensions \
@@ -29,19 +24,35 @@ RUN chmod +x /usr/local/bin/install-php-extensions && \
         pdo_pgsql \
         zip \
         redis \
-        amqp
-
-# Copy Composer binary from official image
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+        amqp && \
+    rm -f /usr/local/bin/install-php-extensions
 
 # Default PHP-FPM configuration (can be overridden with volumes)
 COPY docker/php/conf/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/conf/php-fpm.conf /usr/local/etc/php-fpm.conf
 COPY docker/php/conf/www.conf /usr/local/etc/php-fpm.d/www.conf
 
+# Build and development tools live only in non-runtime targets.
+FROM php-runtime AS php-tooling
+
+ENV COMPOSER_HOME=/tmp/composer
+
+# kics-scan ignore-line
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    git \
+    zip \
+    unzip \
+ && rm -rf /var/lib/apt/lists/*
+
+# Composer is versioned and pinned to its immutable multi-platform manifest.
+COPY --from=composer:2.10.3@sha256:9715c7f69044da2a212a5fbde29ee7da24e364d426560ae6367b060236f847d7 /usr/bin/composer /usr/bin/composer
+
 
 # === Development image ===
-FROM php-base AS dev
+FROM php-tooling AS dev
 
 ENV APP_ENV=dev \
     APP_DEBUG=1 \
@@ -50,8 +61,11 @@ ENV APP_ENV=dev \
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 
-# Helpful dev extensions/tools (xdebug etc.)
-RUN install-php-extensions xdebug
+# Pin the PECL extension too, so the dev layer does not drift on rebuild.
+COPY --from=mlocati/php-extension-installer:2.12.0@sha256:1afade3e29cfc97362cf5885e5ac333bf2faab1146cb28ebbb59b17e68f87e88 /usr/bin/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions && \
+    install-php-extensions xdebug-3.5.3 && \
+    rm -f /usr/local/bin/install-php-extensions
 
 RUN groupmod -o -g "${HOST_GID}" www-data \
  && usermod -o -u "${HOST_UID}" -g "${HOST_GID}" www-data \
@@ -65,7 +79,7 @@ CMD ["php-fpm"]
 
 
 # === Self-contained image for CI (application code + development dependencies) ===
-FROM php-base AS ci
+FROM php-tooling AS ci
 
 ENV APP_ENV=test \
     APP_DEBUG=1 \
@@ -92,8 +106,8 @@ USER www-data
 CMD ["php-fpm"]
 
 
-# === Build image for production (composer install, cache warmup) ===
-FROM php-base AS build
+# === Stable production dependencies (invalidated by Composer manifests) ===
+FROM php-tooling AS prod-dependencies
 
 ENV APP_ENV=prod \
     APP_DEBUG=0
@@ -108,6 +122,10 @@ RUN composer install \
     --no-interaction \
     --no-scripts
 
+
+# === Build image for production (application source, autoload, cache warmup) ===
+FROM prod-dependencies AS build
+
 # Copy application source
 COPY app ./ 
 
@@ -118,15 +136,14 @@ RUN composer dump-autoload --classmap-authoritative --no-dev && \
 
 
 # === Production runtime image ===
-FROM php-base AS prod
+FROM php-runtime AS prod
 
 ENV APP_ENV=prod \
     APP_DEBUG=0
 
-COPY --from=build /var/www/app /var/www/app
+COPY --chown=www-data:www-data --from=build /var/www/app /var/www/app
 
-RUN mkdir -p /var/www/app/var/metrics \
- && chown -R www-data:www-data /var/www/app
+RUN install -d -o www-data -g www-data /var/www/app/var/metrics
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q "pong" || exit 1

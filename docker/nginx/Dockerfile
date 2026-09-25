@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-FROM node:22-alpine AS frontend-build
+FROM node:22.23.2-alpine3.24@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85 AS frontend-build
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN npm ci
 COPY frontend ./
 RUN npm run build
 
-FROM nginx:1.27-alpine AS prod
+FROM nginx:1.27.5-alpine3.21@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS prod
 
 COPY app/public /var/www/app/public
 COPY --from=frontend-build /app/dist/ /var/www/app/public/

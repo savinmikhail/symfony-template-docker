@@ -55,6 +55,8 @@ The goal is to provide a **production‑like environment** for local development
 
 Core services are defined in `docker-compose.yml`. Optional observability services live in `docker-compose.monitoring.yml` and can be started with:
 
+For reusable image pins, PHP build stages, Compose image reuse, and cold/warm image measurements, see the [Docker image build contract](docs/docker-image-build-contract.md).
+
 ```bash
 make up-monitoring
 ```
