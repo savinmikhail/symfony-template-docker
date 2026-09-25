@@ -6,6 +6,7 @@ target="${DOCKER_AUDIT_TARGET:-prod}"
 image="${DOCKER_AUDIT_IMAGE:-symfony-template-audit:local}"
 context="${DOCKER_AUDIT_CONTEXT:-.}"
 audit_dir="${DOCKER_AUDIT_DIR:-}"
+dive_image="${DIVE_IMAGE:-docker.io/wagoodman/dive:v0.13.1@sha256:f1886e6c32c094fc41a623c1989f5cb3e48aa766da5f0be233f911fc1d85ce10}"
 build_args=()
 
 usage() {
@@ -18,6 +19,7 @@ Environment:
   DOCKER_AUDIT_IMAGE       local image tag (default: symfony-template-audit:local)
   DOCKER_AUDIT_CONTEXT     build context (default: .)
   DOCKER_AUDIT_DIR         output directory (default: a temporary directory)
+  DIVE_IMAGE               analyzer image (default: Dive v0.13.1 pinned by digest)
 
 Do not pass secrets as build arguments. Use BuildKit secret mounts instead.
 EOF
@@ -50,6 +52,17 @@ if [[ -z "$audit_dir" ]]; then
 else
   mkdir -p "$audit_dir"
 fi
+audit_dir="$(cd "$audit_dir" && pwd)"
+
+archive_dir="$(mktemp -d "${TMPDIR:-/tmp}/docker-image-audit-archive.XXXXXX")"
+image_archive="$archive_dir/image.tar"
+cleanup() {
+  rm -rf "$archive_dir"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 monotonic_now() {
   if command -v python3 >/dev/null 2>&1; then
@@ -104,19 +117,25 @@ printf 'Image: %s, %s MiB, %s layers\n' "$image" "$image_mib" "$layer_count"
 docker history --no-trunc --format '{{.Size}}{{"\t"}}{{.CreatedBy}}' "$image" >"$audit_dir/image-history.txt"
 printf 'Layer history: %s\n' "$audit_dir/image-history.txt"
 
-if command -v dive >/dev/null 2>&1; then
-  dive_report="$audit_dir/dive.json"
-  if dive --json "$dive_report" "$image" >"$audit_dir/dive.log" 2>&1; then
-    if command -v jq >/dev/null 2>&1; then
-      jq -r '"Dive: size=" + ((.image.sizeBytes / 1048576 * 10 | round) / 10 | tostring) + " MiB, wasted=" + ((.image.inefficientBytes / 1048576 * 10 | round) / 10 | tostring) + " MiB, efficiency=" + ((.image.efficiencyScore * 100 * 100 | round) / 100 | tostring) + "%"' "$dive_report"
-    else
-      printf 'Dive report: %s\n' "$dive_report"
-    fi
-  else
-    printf 'Dive could not analyze %s; see %s\n' "$image" "$audit_dir/dive.log"
-  fi
+docker image save --output "$image_archive" "$image"
+dive_report="$audit_dir/dive.json"
+if ! docker run --rm \
+  --network none \
+  --env CI=true \
+  --volume "$image_archive:/image.tar:ro" \
+  --volume "$audit_dir:/audit" \
+  "$dive_image" \
+  --source docker-archive \
+  --json /audit/dive.json \
+  /image.tar >"$audit_dir/dive.log" 2>&1; then
+  echo "Dive failed to analyze $image; last output follows:" >&2
+  tail -n 80 "$audit_dir/dive.log" >&2
+  exit 1
+fi
+if command -v jq >/dev/null 2>&1; then
+  jq -r '"Dive: size=" + ((.image.sizeBytes / 1048576 * 10 | round) / 10 | tostring) + " MiB, wasted=" + ((.image.inefficientBytes / 1048576 * 10 | round) / 10 | tostring) + " MiB, efficiency=" + ((.image.efficiencyScore * 100 * 100 | round) / 100 | tostring) + "%"' "$dive_report"
 else
-  echo "Dive is not installed; image and layer metrics are available above."
+  printf 'Dive report: %s\n' "$dive_report"
 fi
 
 printf 'Image retained locally for inspection: %s\n' "$image"
