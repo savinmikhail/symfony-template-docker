@@ -447,3 +447,14 @@ You are expected to:
 - Extend Grafana dashboards and alerting rules for your use‑cases.
 
 Use this as a starting point for new Symfony API projects with Docker‑first, observability‑ready setup.
+
+### Local Compose network exhaustion
+
+`make up` reuses this Compose project's default network or creates it before
+starting services. If Docker's automatic address pools are exhausted, the helper
+allocates an unused /24 from `LOCAL_COMPOSE_SUBNET_POOL` (default `10.240.0.0/12`),
+excluding existing Docker subnets. Set another pool if this range overlaps a host
+LAN/VPN. Other daemon errors stop startup; foreign networks are never deleted or
+reconfigured. Run `python3 scripts/tests/compose_network_test.py` for the helper's
+unit checks. Services can reuse `docker/ensure-compose-network.py PROJECT` from
+local Task/Make wrappers; production deployment should keep its configured networks.

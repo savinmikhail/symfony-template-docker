@@ -54,6 +54,7 @@ export APP_IMAGE_TAG
 .PHONY: docker-image-audit up up-monitoring grafana-alerting-provisioning suggest-free-ports check-free-ports up-prod check-loki-driver check-monitoring-env check-prod-env wait-prod reload-prometheus composer-install composer-install-prod frontend-install frontend-build frontend-lint frontend-stylelint frontend-ci-install frontend-ci-quality php-rebuild php phpstan phpat dep-analyse cs-fix cs-check rector rector-check composer-validate composer-audit prod-di-validate doctrine-schema-validate backend-quality ci-pull-php ci-up-php ci-up-tests ci-down test quality quality-dr gen-secrets tag kics kics-high kics-full k6 worker dmm dmm-prod shell-postgres provision-readonly-role prod-query prod-cache-reset backup-prod-now check-release-image-tag current-prod-image-sha pull-prod-images migrate-prod-image rollout-prod-postgres-backup switch-prod-app smoke-prod deploy-prod rollback-prod
 
 up:
+	python3 docker/ensure-compose-network.py "$$(docker compose config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')"
 	docker compose up -d --build
 	$(MAKE) composer-install
 	$(MAKE) frontend-install
