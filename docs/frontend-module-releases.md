@@ -23,3 +23,7 @@ Auth is a separate identity frontend; BI remains an external application. Their
 backend pipelines should not receive module jobs unless their deployment model
 changes. Product repositories supply their own domains, ports, images, SDK and
 credentials; these are intentionally not embedded in this optional baseline.
+
+Registry downloads should retry transient failures before acquiring a shared deployment lock. Only the verified asset/environment switch and smoke/rollback need serialization. Keep a bounded job timeout; exhausted downloads must leave the previous deployment intact.
+
+Use the identity provider's effective module grants for restricted navigation. Do not duplicate admin/student permission resolution in a host frontend; public navigation and protected route authorization are separate concerns.
