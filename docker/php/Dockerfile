@@ -4,6 +4,10 @@ FROM php:8.4.25-fpm-trixie@sha256:223115611852f585846b5d30f0cd95de8af9b486ca3bf3
 
 WORKDIR /var/www/app
 
+# Use HTTPS mirrors reachable by runners and tolerate transient download failures.
+RUN sed -i -e 's|http://deb.debian.org/debian-security|https://security.debian.org/debian-security|g' -e 's|http://deb.debian.org/debian|https://mirrors.kernel.org/debian|g' /etc/apt/sources.list.d/debian.sources \
+ && printf 'Acquire::EnableSrvRecords "false";\nAcquire::ForceIPv4 "true";\nAcquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAPT::Update::Error-Mode "any";\n' > /etc/apt/apt.conf.d/80-network-retries
+
 # Runtime packages needed by the image, including the FPM health check.
 # kics-scan ignore-line
 RUN apt-get update \
