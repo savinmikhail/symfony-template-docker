@@ -8,7 +8,7 @@ permissions:
   actions: read
   packages: write
 concurrency:
-  group: production-release
+  group: production-release-${{ github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') && 'tags' || github.run_id }}
   cancel-in-progress: false
 jobs:
   candidate:
