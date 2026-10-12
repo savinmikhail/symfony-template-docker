@@ -454,3 +454,5 @@ CI builds every production-image matrix entry locally and runs the [official Doc
 Scout requires an authenticated Docker Hub session on the runner (including hosted runners); GHCR authentication alone does not provide it. Configure repository or organization secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub PAT) before enabling this workflow. Values are never stored in the repository. The official action receives these credentials directly. Local equivalent after building the production target: `make image-scout IMAGE=<image>`. Vulnerability results must never be cached by Task sources/status.
 
 Application diagnostics use an internal nginx listener on port 8081. Do not publish or proxy this port; monitoring targets use it directly on the container network. The public application listener denies diagnostic endpoints.
+
+Temporary npm audit exception: only dev-only braces 3.0.3 advisory GHSA-vfj7-8cjw-p6xm, approved 2026-10-12, expires 2026-11-08 UTC. Other High/Critical, production dependencies and incomplete audit responses still fail. Remove when a patched release is available.

@@ -147,7 +147,7 @@ frontend-ci-install:
 	cd frontend && npm ci
 
 frontend-ci-quality:
-	cd frontend && npm audit --audit-level=high
+	cd frontend && node --test scripts/audit-exception.test.mjs && node scripts/audit-exception.mjs
 	cd frontend && npm run lint
 	cd frontend && npm run stylelint
 	cd frontend && npm run build
