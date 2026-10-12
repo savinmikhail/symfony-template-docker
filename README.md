@@ -460,3 +460,9 @@ Temporary npm audit exception: only dev-only braces 3.0.3 advisory GHSA-vfj7-8cj
 ### Parallel CI scanners and Alpine downloads
 
 Scout uses a separate cache for each CI matrix job and run attempt, preventing lock contention between shared-host runners. Alpine stages default to the tested HTTPS mirror `https://dl-4.alpinelinux.org/alpine`; override the `ALPINE_MIRROR` build argument to change it. Repository release paths and APK signature verification remain unchanged. Debian-based stages are unaffected.
+
+### CI execution budgets
+
+Release checks, deployment and rollback jobs have a 10-minute execution budget; image builds have 20 minutes. Interviews PHP media builds allow 30 minutes for cold FFmpeg compilation. Scout has a separate 5-minute step budget. GitHub cancels an over-budget job; queue waiting time is not included. Existing APK network timeouts and isolated Scout caches bound the known failure modes. Manual backup restore and dedicated external runner provisioning keep their separate operational budgets.
+
+Prefer a newer release containing the required changes over waiting for an obsolete candidate. Cancel superseded CI only after checking its ownership and deployment state; never interrupt an active production deployment or migration merely to prioritize another tag. Production deployment concurrency remains serialized.
