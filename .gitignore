@@ -5,3 +5,4 @@
 /var/backups/
 
 /docker/__pycache__/
+/graphify-out/
