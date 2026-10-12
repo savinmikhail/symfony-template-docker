@@ -11,3 +11,5 @@ test('exception expires', () => assert.deepEqual(auditFailures(report(), lock, D
 test('production dependency blocks', () => assert.deepEqual(auditFailures(report(), { packages: { 'node_modules/braces': { version: '3.0.3' } } }, now), [url]))
 test('malformed and unsuccessful audits fail closed', () => { assert.throws(() => auditFailures({ error: {} }, lock, now)); const r = report(); r.vulnerabilities.parent.via = ['missing']; assert.throws(() => auditFailures(r, lock, now)) })
 test('dependency cycles fail closed', () => { const r = report(); r.vulnerabilities.parent.via = ['parent']; assert.throws(() => auditFailures(r, lock, now)) })
+test('same advisory upgraded to critical blocks', () => { const r = report(); r.vulnerabilities.braces.via[0].severity = 'critical'; assert.deepEqual(auditFailures(r, lock, now), [url]) })
+test('unknown advisory severity fails closed', () => { const r = report(); r.vulnerabilities.braces.via[0].severity = 'unknown'; assert.throws(() => auditFailures(r, lock, now)) })

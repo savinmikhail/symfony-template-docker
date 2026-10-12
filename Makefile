@@ -355,7 +355,7 @@ switch-prod-app:
 smoke-prod:
 	@attempt=1; \
 	while [ "$$attempt" -le 10 ]; do \
-		if $(PROD_COMPOSE) exec -T nginx wget -q -O /dev/null http://127.0.0.1:8080/metrics; then \
+		if $(PROD_COMPOSE) exec -T nginx wget -q -O /dev/null http://127.0.0.1:8081/metrics; then \
 			echo "Production HTTP smoke passed."; \
 			exit 0; \
 		fi; \
