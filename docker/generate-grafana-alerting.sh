@@ -41,8 +41,6 @@ fi
 require_env APP_GRAFANA_TELEGRAM_BOT_TOKEN
 require_env APP_GRAFANA_TELEGRAM_CHAT_ID
 
-bot_token=$(yaml_escape "${APP_GRAFANA_TELEGRAM_BOT_TOKEN}")
-chat_id=$(yaml_escape "${APP_GRAFANA_TELEGRAM_CHAT_ID}")
 
 cat > "${output_path}" <<EOF
 apiVersion: 1
@@ -55,8 +53,8 @@ contactPoints:
         type: telegram
         disableResolveMessage: false
         settings:
-          bottoken: "${bot_token}"
-          chatid: "${chat_id}"
+          bottoken: "\$APP_GRAFANA_TELEGRAM_BOT_TOKEN"
+          chatid: "\$APP_GRAFANA_TELEGRAM_CHAT_ID"
           message: |
             {{ template "default.message" . }}
 

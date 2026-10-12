@@ -219,7 +219,7 @@ groups:
           severity: critical
 
       - uid: service_http_5xx_rate_high
-        title: HTTP 5xx rate high
+        title: HTTP 5xx detected
         condition: B
         data:
           - refId: A
@@ -232,7 +232,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: 100 * sum(rate(app_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(app_http_requests_total[5m])), 0.001)
+              expr: sum(increase(app_http_requests_total{status_class="5xx"}[5m]))
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -246,7 +246,7 @@ groups:
               conditions:
                 - evaluator:
                     params:
-                      - 1
+                      - 0
                     type: gt
                   operator:
                     type: and
@@ -264,9 +264,9 @@ groups:
               type: classic_conditions
         noDataState: OK
         execErrState: Error
-        for: 5m
+        for: 0s
         annotations:
-          summary: HTTP 5xx responses are above 1 percent.
+          summary: At least one HTTP 5xx response was observed in the last 5 minutes.
           description: Open Service Production Overview, then use Service Logs Drilldown filtered by level=error.
         labels:
           severity: critical

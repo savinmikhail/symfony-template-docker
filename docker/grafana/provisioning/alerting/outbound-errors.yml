@@ -1,0 +1,42 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: service-outbound-errors
+    folder: HTTP Errors
+    interval: 30s
+    rules:
+      - uid: service_outbound_http_errors
+        title: service outbound HTTP failure
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange: {from: 300, to: 0}
+            model:
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({compose_service=~".+"} | json event="message" | __error__="" | event="outbound_http_failure" [5m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: {from: 0, to: 0}
+            model:
+              datasource: {type: __expr__, uid: __expr__}
+              type: classic_conditions
+              refId: B
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [A]}
+                  reducer: {type: last, params: []}
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: An outbound HTTP request failed (4xx/5xx, timeout or transport error).
+          description: Filter application logs by message=outbound_http_failure; inspect integration, status_code and failure_kind. Expected statuses must be excluded explicitly at the call site.
+        labels:
+          severity: critical
+          product: service
+
