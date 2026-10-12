@@ -456,3 +456,7 @@ Scout requires an authenticated Docker Hub session on the runner (including host
 Application diagnostics use an internal nginx listener on port 8081. Do not publish or proxy this port; monitoring targets use it directly on the container network. The public application listener denies diagnostic endpoints.
 
 Temporary npm audit exception: only dev-only braces 3.0.3 advisory GHSA-vfj7-8cjw-p6xm, approved 2026-10-12, expires 2026-11-08 UTC. Other High/Critical, production dependencies and incomplete audit responses still fail. Remove when a patched release is available.
+
+### Parallel CI scanners and Alpine downloads
+
+Scout uses a separate cache for each CI matrix job and run attempt, preventing lock contention between shared-host runners. Alpine stages default to the tested HTTPS mirror `https://dl-4.alpinelinux.org/alpine`; override the `ALPINE_MIRROR` build argument to change it. Repository release paths and APK signature verification remain unchanged. Debian-based stages are unaffected.

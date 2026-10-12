@@ -158,6 +158,8 @@ jobs:
 
       - name: Scan fixable high and critical vulnerabilities
         uses: docker/scout-action@v1
+        env:
+          DOCKER_SCOUT_CACHE_DIR: ${{ runner.temp }}/scout-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
         with:
           command: cves
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}

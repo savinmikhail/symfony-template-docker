@@ -11,6 +11,9 @@ COPY frontend ./
 RUN npm run build
 
 FROM nginx:stable-alpine-slim@sha256:32463212baf0e7d91aded2e9b843a4f2b9e017804b8c9d5bae7b51dcef64389c AS prod
+ARG ALPINE_MIRROR=https://dl-4.alpinelinux.org/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
+ && printf 'timeout 60\n' > /etc/apk/config
 
 RUN apk upgrade --no-cache
 
