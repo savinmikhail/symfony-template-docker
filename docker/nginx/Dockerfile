@@ -10,7 +10,7 @@ RUN npm ci
 COPY frontend ./
 RUN npm run build
 
-FROM nginx:stable-alpine-slim@sha256:32463212baf0e7d91aded2e9b843a4f2b9e017804b8c9d5bae7b51dcef64389c AS prod
+FROM nginx:stable-alpine-slim@sha256:32463212baf0e7d91aded2e9b843a4f2b9e017804b8c9d5bae7b51dcef64389c AS api-only
 ARG ALPINE_MIRROR=https://dl-4.alpinelinux.org/alpine
 RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
  && printf 'timeout 60\n' > /etc/apk/config
@@ -18,7 +18,6 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk
 RUN apk upgrade --no-cache
 
 COPY app/public /var/www/app/public
-COPY --from=frontend-build /app/dist/ /var/www/app/public/
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/conf.d /etc/nginx/conf.d
 
@@ -30,3 +29,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:8081/fpm-ping || exit 1
 
 USER nginx
+
+# Standalone remains the default; shell-hosted services select target: api-only.
+FROM api-only AS prod
+COPY --from=frontend-build /app/dist/ /var/www/app/public/
