@@ -463,6 +463,10 @@ Scout uses a separate cache for each CI matrix job and run attempt, preventing l
 
 ### CI execution budgets
 
-Release checks, deployment and rollback jobs have a 10-minute execution budget; image builds have 20 minutes. Interviews PHP media builds allow 30 minutes for cold FFmpeg compilation. Scout has a separate 5-minute step budget. GitHub cancels an over-budget job; queue waiting time is not included. Existing APK network timeouts and isolated Scout caches bound the known failure modes. Manual backup restore and dedicated external runner provisioning keep their separate operational budgets.
+Release checks, deployment and rollback jobs have a 10-minute execution budget; image builds have 20 minutes. Interviews PHP media builds allow 30 minutes for cold FFmpeg compilation. Scout has a separate 10-minute step budget. GitHub cancels an over-budget job; queue waiting time is not included. Existing APK network timeouts and isolated Scout caches bound the known failure modes. Manual backup restore and dedicated external runner provisioning keep their separate operational budgets.
 
 Prefer a newer release containing the required changes over waiting for an obsolete candidate. Cancel superseded CI only after checking its ownership and deployment state; never interrupt an active production deployment or migration merely to prioritize another tag. Production deployment concurrency remains serialized.
+
+### Tag release supersession
+
+Tag-push CI runs share a cancelable release group. PR checks retain separate groups per PR; manual checks retain their ref group. Successful tag CI triggers the independent Release workflow, which verifies the exact checked tag SHA and skips superseded semantic-version tags. Release serializes deployment and module publication without canceling an active rollout. Existing manual deploy/rollback entry points remain available. During migration, tags without release.yml keep their original inline deploy only. The template itself has no production target.
