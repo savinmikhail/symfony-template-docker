@@ -117,8 +117,68 @@ jobs:
       - uses: actions/checkout@v6
       - run: make kics-high
 
+  production-image-security:
+    name: Scout production image (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: { contents: read, packages: read }
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: php, file: docker/php/Dockerfile, target: prod, cache: template-php-prod }
+          - { name: nginx, file: docker/nginx/Dockerfile, target: prod, cache: template-nginx-prod }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build production ${{ matrix.name }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          push: false
+          load: true
+          tags: ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+          cache-from: |
+            type=gha,scope=${{ matrix.cache }}
+            ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache', github.repository, matrix.name) || '' }}
+
+      - name: Scan fixable high and critical vulnerabilities
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+          image: local://ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+          only-severities: critical,high
+          only-fixed: true
+          exit-code: true
+          write-comment: false
+          sarif-file: scout-${{ matrix.name }}.sarif.json
+      - name: Preserve Scout report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scout-${{ matrix.name }}
+          path: scout-${{ matrix.name }}.sarif.json
+          if-no-files-found: warn
+
   production-images:
     name: Production image (${{ matrix.name }})
+    needs: production-image-security
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions: { contents: read, packages: write }

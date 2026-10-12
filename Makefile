@@ -383,3 +383,10 @@ rollback-prod:
 	$(MAKE) pull-prod-images
 	$(MAKE) switch-prod-app
 	$(MAKE) smoke-prod
+
+# Fresh vulnerability data: never wrap this target in a checksum/status cache.
+SCOUT ?= docker scout
+.PHONY: image-scout
+image-scout:
+	@test -n "$(IMAGE)" || { echo 'Usage: make image-scout IMAGE=<local-production-image>' >&2; exit 1; }
+	$(SCOUT) cves --only-severity critical,high --only-fixed --exit-code "local://$(IMAGE)"

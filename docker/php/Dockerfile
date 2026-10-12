@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-FROM php:8.4.25-fpm-trixie@sha256:223115611852f585846b5d30f0cd95de8af9b486ca3bf310174a143704fc71e3 AS php-runtime
+FROM php:8.4-fpm-trixie@sha256:1071b5609d16d60674f78eea8cf9bd7e9e79169ecb566d015c931c5ee789bb13 AS php-runtime
 
 WORKDIR /var/www/app
 
@@ -11,6 +11,7 @@ RUN sed -i -e 's|http://deb.debian.org/debian-security|https://security.debian.o
 # Runtime packages needed by the image, including the FPM health check.
 # kics-scan ignore-line
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends \
     tzdata \
     libfcgi-bin \
@@ -43,6 +44,7 @@ ENV COMPOSER_HOME=/tmp/composer
 
 # kics-scan ignore-line
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends \
     bash \
     curl \
@@ -141,6 +143,10 @@ RUN composer dump-autoload --classmap-authoritative --no-dev && \
 
 # === Production runtime image ===
 FROM php-runtime AS prod
+
+# Keep PHP build tools out of the final runtime.
+RUN apt-get purge -y --auto-remove $PHPIZE_DEPS \
+ && rm -rf /var/lib/apt/lists/*
 
 ENV APP_ENV=prod \
     APP_DEBUG=0

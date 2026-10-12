@@ -447,3 +447,10 @@ You are expected to:
 - Extend Grafana dashboards and alerting rules for your use‑cases.
 
 Use this as a starting point for new Symfony API projects with Docker‑first, observability‑ready setup.
+## Production image security
+
+CI builds every production-image matrix entry locally and runs the [official Docker Scout action](https://github.com/docker/scout-action) independently of KICS. Publication waits for the Scout gate. Fixable High/Critical findings fail the gate; unresolved findings without an available fix do not. SARIF reports are retained as artifacts. Existing Composer/npm audits remain unchanged. Dev/CI images are excluded.
+
+Scout requires an authenticated Docker Hub session on the runner (including hosted runners); GHCR authentication alone does not provide it. Configure repository or organization secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub PAT) before enabling this workflow. Values are never stored in the repository. The official action receives these credentials directly. Local equivalent after building the production target: `make image-scout IMAGE=<image>`. Vulnerability results must never be cached by Task sources/status.
+
+Application diagnostics use an internal nginx listener on port 8081. Do not publish or proxy this port; monitoring targets use it directly on the container network. The public application listener denies diagnostic endpoints.
