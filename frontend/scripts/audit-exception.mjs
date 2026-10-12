@@ -19,13 +19,14 @@ export function auditFailures(report, lock, now = Date.now()) {
       if (typeof via === 'string') { visit(via, new Set(path).add(name)); continue }
       if (!via || typeof via !== 'object' || !['info', 'low', 'moderate', 'high', 'critical'].includes(via.severity)) throw new Error('Invalid advisory')
       if (!['high', 'critical'].includes(via.severity)) continue
-      const devOnly = name === 'braces' && item.nodes?.length > 0 && item.nodes.every((node) =>
+      const devOnly = item.severity === 'high' && name === 'braces' && item.nodes?.length > 0 && item.nodes.every((node) =>
         lock.packages[node]?.dev === true && lock.packages[node]?.version === '3.0.3')
       if (devOnly && via.severity === 'high' && via.name === 'braces' && via.url === advisoryUrl && now < expiresAt) continue
       failures.add(via.url || `${name}: unknown advisory`)
     }
   }
   for (const [name, item] of Object.entries(report.vulnerabilities)) {
+    if (!item || !['info', 'low', 'moderate', 'high', 'critical'].includes(item.severity)) throw new Error('Invalid vulnerability severity')
     if (['high', 'critical'].includes(item.severity)) visit(name)
   }
   return [...failures]
