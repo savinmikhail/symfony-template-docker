@@ -2,7 +2,7 @@
 <?php
 
 use App\Kernel;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
+use App\Shared\Console\JsonConsoleApplication as Application;
 
 if (!is_dir(dirname(__DIR__).'/vendor')) {
     throw new LogicException('Dependencies are missing. Try running "composer install".');
