@@ -22,7 +22,7 @@ jobs:
     permissions: { contents: read, packages: write }
     steps:
       - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
+      - uses: ./.github/actions/setup-ci-builder
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -43,16 +43,20 @@ jobs:
             type=gha,scope=template-php-ci
             type=registry,ref=ghcr.io/${{ github.repository }}-php-ci:buildcache
             type=registry,ref=ghcr.io/${{ github.repository }}-php:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}-php-ci:buildcache,mode=max
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref=ghcr.io/{0}-php-ci:buildcache,mode=max', github.repository) || '' }}
 
   backend-quality:
     timeout-minutes: 10
-    name: Backend quality
+    name: Backend quality (${{ matrix.check }})
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [composer-validate, composer-audit, phpstan, phpat, dep-analyse, cs-check, rector-check, prod-di-validate]
     needs: ci-php-image
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: read }
     env:
-      COMPOSE_PROJECT_NAME: symfony-template
+      COMPOSE_PROJECT_NAME: template-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.check }}
       APP_CI_PHP_IMAGE: ghcr.io/${{ github.repository }}-php-ci
       APP_CI_IMAGE_TAG: ${{ github.sha }}
     steps:
@@ -62,13 +66,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: make ci-pull-php
-      - run: make ci-up-php
-      - run: make backend-quality
+      - run: make ci-pull-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ci-up-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ${{ matrix.check }} COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
       - if: failure()
         run: docker compose logs --no-color php
       - if: always()
-        run: make ci-down
+        run: make ci-down COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
 
   backend-tests:
     timeout-minutes: 10
@@ -77,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: read }
     env:
-      COMPOSE_PROJECT_NAME: symfony-template
+      COMPOSE_PROJECT_NAME: template-${{ github.run_id }}-${{ github.run_attempt }}-tests
       APP_CI_PHP_IMAGE: ghcr.io/${{ github.repository }}-php-ci
       APP_CI_IMAGE_TAG: ${{ github.sha }}
     steps:
@@ -87,13 +91,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: make ci-pull-php
-      - run: make ci-up-tests
-      - run: make test
+      - run: make ci-pull-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ci-up-tests COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make test COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
       - if: failure()
         run: docker compose logs --no-color db redis rabbitmq php
       - if: always()
-        run: make ci-down
+        run: make ci-down COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
 
   frontend-quality:
     timeout-minutes: 10
@@ -117,11 +121,12 @@ jobs:
       - uses: actions/checkout@v6
       - run: make kics-high
 
-  production-image-security:
+  production-images:
     timeout-minutes: 20
-    name: Scout production image (${{ matrix.name }})
+    needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality]
+    name: Production image (${{ matrix.name }})
     runs-on: ubuntu-latest
-    permissions: { contents: read, packages: read }
+    permissions: { contents: read, packages: write }
     strategy:
       fail-fast: false
       matrix:
@@ -130,7 +135,7 @@ jobs:
           - { name: nginx, file: docker/nginx/Dockerfile, target: prod, cache: template-nginx-prod }
     steps:
       - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
+      - uses: ./.github/actions/setup-ci-builder
       - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: docker/login-action@v4
         with:
@@ -154,13 +159,15 @@ jobs:
             APP_VERSION=${{ github.ref_name }}
           cache-from: |
             type=gha,scope=${{ matrix.cache }}
-            ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache', github.repository, matrix.name) || '' }}
+            type=registry,ref=ghcr.io/${{ github.repository }}-${{ matrix.name }}:buildcache
+          cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache,mode=max', github.repository, matrix.name) || '' }}
 
       - name: Scan fixable high and critical vulnerabilities
         uses: docker/scout-action@v1
         timeout-minutes: 10
         env:
-          DOCKER_SCOUT_CACHE_DIR: ${{ runner.temp }}/scout-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+          DOCKER_SCOUT_CACHE_DIR: ${{ runner.temp }}/scout-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.name }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/scout-index-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.name }}
         with:
           command: cves
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -179,42 +186,15 @@ jobs:
           path: scout-${{ matrix.name }}.sarif.json
           if-no-files-found: warn
 
-  production-images:
-    timeout-minutes: 20
-    name: Production image (${{ matrix.name }})
-    needs: production-image-security
-    runs-on: ubuntu-latest
-    permissions: { contents: read, packages: write }
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: php, file: docker/php/Dockerfile, target: prod, cache: template-php-prod }
-          - { name: nginx, file: docker/nginx/Dockerfile, target: prod, cache: template-nginx-prod }
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build production ${{ matrix.name }} image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ matrix.file }}
-          target: ${{ matrix.target }}
-          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-          tags: ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.ref_name }}
-          build-args: |
-            APP_VERSION=${{ github.ref_name }}
-          cache-from: |
-            type=gha,scope=${{ matrix.cache }}
-            ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache', github.repository, matrix.name) || '' }}
-          cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache,mode=max', github.repository, matrix.name) || format('type=gha,scope={0},mode=max', matrix.cache) }}
+      - name: Publish the scanned local image
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+        run: |
+          checked_id=$(docker image inspect --format '{{.Id}}' "$IMAGE")
+          docker push "$IMAGE"
+          test "$checked_id" = "$(docker image inspect --format '{{.Id}}' "$IMAGE")"
+          echo "Published Scout-checked image $IMAGE ($checked_id)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove local production image
+        if: always()
+        run: docker image rm ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }} >/dev/null 2>&1 || true
