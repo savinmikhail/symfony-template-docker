@@ -32,6 +32,11 @@ if (isset($argv[2])) {
         $output->writeln('0 failed; Exception ERROR; quotes " and slash \\ and Unicode Привет');
         $output->write("multiline\nmessage");
         $output->writeln('{"message":"structured warning","level_name":"WARNING"}');
+        $output->getErrorOutput()->writeln(' // The worker will automatically exit after its time limit.');
+        $output->getErrorOutput()->writeln('{"message":"stderr info","level_name":"INFO"}');
+        $output->getErrorOutput()->writeln('{"message":"stderr warning","level_name":"WARNING"}');
+        $output->getErrorOutput()->writeln('{"message":"stderr error","level_name":"ERROR"}');
+        $output->getErrorOutput()->writeln('{"message":"stderr critical","level_name":"CRITICAL"}');
         if ($mode === 'throw') {
             throw new RuntimeException('fixture exception');
         }
@@ -65,11 +70,15 @@ foreach (['ok' => 0, 'fail' => 7, 'throw' => 1, 'plain' => 0] as $mode => $expec
     $check($records[0]['level_name'] === 'INFO', 'Keywords must not turn INFO into ERROR');
     $check($records[1]['message'] === "multiline\nmessage", 'Multiline message must remain one JSON record');
     $check($records[2]['level_name'] === 'WARNING', 'Structured severity must survive without double encoding');
-    $check($mode === 'ok' ? $stderr === '' : $stderr !== '', 'Failed commands need ERROR records');
+    $errorRecords = [];
     foreach (array_filter(explode("\n", $stderr)) as $line) {
         $record = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
-        $check($record['level_name'] === 'ERROR', 'Command failures must be ERROR');
+        $errorRecords[] = $record;
     }
+    $check($errorRecords[0]['level_name'] === 'INFO', 'Worker startup help on stderr must be INFO');
+    $check(array_column(array_slice($errorRecords, 1, 4), 'level_name') === ['INFO', 'WARNING', 'ERROR', 'CRITICAL'], 'Structured stderr levels must survive');
+    $failures = array_slice($errorRecords, 5);
+    $check($mode === 'ok' ? $failures === [] : in_array('ERROR', array_column($failures, 'level_name'), true), 'Failed commands and exceptions need an explicit ERROR record');
 }
 foreach (glob($root.'/docker/grafana/dashboards/*.json') as $path) {
     $dashboard = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);

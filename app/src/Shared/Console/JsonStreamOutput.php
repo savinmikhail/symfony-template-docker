@@ -29,7 +29,7 @@ final class JsonStreamOutput extends StreamOutput
     protected function doWrite(string $message, bool $newline): void
     {
         if ('' !== trim(string: $message)) {
-            parent::doWrite(message: self::encode(message: $message, levelName: 'ERROR'), newline: true);
+            parent::doWrite(message: self::encode(message: $message, levelName: 'INFO'), newline: true);
         }
     }
 }
