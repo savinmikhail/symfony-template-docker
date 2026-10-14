@@ -10,6 +10,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     tzdata \
     libfcgi-bin \
+    libcurl4t64 \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libcurl4t64)" ge '8.14.1-2+deb13u7' \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/www/app \
  && chown -R www-data:www-data /var/www/app
