@@ -95,7 +95,7 @@ COPY app/tools/phpat/composer.json app/tools/phpat/composer.lock ./tools/phpat/
 COPY app/tools/phpstan/composer.json app/tools/phpstan/composer.lock ./tools/phpstan/
 COPY app/tools/rector/composer.json app/tools/rector/composer.lock ./tools/rector/
 
-RUN composer install --prefer-dist --no-progress --no-interaction --no-scripts
+RUN --mount=type=cache,target=/tmp/composer/cache,sharing=locked composer install --prefer-dist --no-progress --no-interaction --no-scripts
 
 COPY app ./
 
@@ -117,7 +117,7 @@ ENV APP_ENV=prod \
 # Install PHP dependencies without dev packages
 COPY app/composer.json app/composer.lock ./ 
 
-RUN composer install \
+RUN --mount=type=cache,target=/tmp/composer/cache,sharing=locked composer install \
     --no-dev \
     --prefer-dist \
     --no-progress \
