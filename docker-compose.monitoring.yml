@@ -170,6 +170,7 @@ services:
       GF_SERVER_ROOT_URL: "${APP_GRAFANA_ROOT_URL:-http://localhost:3000/}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "${APP_GRAFANA_SERVE_FROM_SUB_PATH:-false}"
     volumes:
+      - ./tmp/grafana/data:/var/lib/grafana
       - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./docker/grafana/provisioning/plugins:/etc/grafana/provisioning/plugins:ro

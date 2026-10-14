@@ -1,0 +1,23 @@
+{{ define "symfony-template-docker.message" -}}
+{{ range $index, $alert := .Alerts -}}
+{{ if lt $index 3 -}}
+{{ if eq .Status "firing" }}{{ if eq .Labels.severity "critical" }}🔴{{ else }}⚠️{{ end }} Срабатывание{{ else }}✅ Условие алерта больше не выполняется{{ end }} · Service
+{{ if .Annotations.summary }}{{ .Annotations.summary | html }}{{ else }}{{ .Labels.alertname | html }}{{ end }}
+{{ with .Annotations.description }}{{ . | html }}
+{{ end -}}
+{{ if and .Annotations.logs_query (eq $index 0) -}}
+{{ $from := (.StartsAt.Add -600000000000).UnixMilli -}}
+{{ $to := "now" -}}
+{{ if eq .Status "resolved" }}{{ $to = printf "%d" (.EndsAt.Add 300000000000).UnixMilli }}{{ end -}}
+{{ $left := printf "{\"datasource\":\"loki\",\"queries\":[{\"refId\":\"A\",\"expr\":%q}],\"range\":{\"from\":\"%d\",\"to\":\"%s\"}}" .Annotations.logs_query $from $to -}}
+<a href="{{ reReplaceAll "/+$" "" $.ExternalURL | html }}/explore?orgId=1&amp;left={{ $left | urlquery | html }}">Открыть логи ошибки</a>
+{{ end -}}
+{{ with .PanelURL }}<a href="{{ . | html }}">Открыть график</a>
+{{ end -}}
+{{ with .GeneratorURL }}<a href="{{ . | html }}">Правило алерта</a>{{ end }}
+
+{{ end -}}
+{{ end -}}
+{{ if gt (len .Alerts) 3 }}Показаны первые 3 события из {{ len .Alerts }}. Остальные — в Grafana.
+{{ end -}}
+{{ end }}

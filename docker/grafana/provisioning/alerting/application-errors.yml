@@ -1,0 +1,39 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: symfony-template-docker-application-errors
+    folder: Application Errors
+    interval: 30s
+    rules:
+      - uid: symfony_template_docker_application_errors
+        title: Service — ошибки приложения
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange: {from: 300, to: 0}
+            model:
+              datasource: {type: loki, uid: loki}
+              expr: 'sum by (service, channel, error_kind, error_severity) (count_over_time({compose_project=~".+"} | label_format service=`{{ .service | default .compose_service | default .container_name | default "unknown" }}` | json event="message", level_name="level_name", channel="channel", exception_message="context.exception.message" | __error__="" | level_name=~"ERROR|CRITICAL|ALERT|EMERGENCY" | event!="outbound_http_failure" | label_format error_kind=`{{ if or (contains "json" (lower .event)) (contains "json" (lower .exception_message)) }}json{{ else }}application{{ end }}`, error_severity=`{{ if eq .level_name "ERROR" }}warning{{ else }}critical{{ end }}` [5m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: {from: 0, to: 0}
+            model:
+              datasource: {type: __expr__, uid: __expr__}
+              type: math
+              refId: B
+              expression: $A > 0
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: '{{ if eq $labels.error_kind "json" }}Ошибка обработки JSON{{ else }}Ошибка приложения{{ end }} в сервисе {{ if $labels.service }}{{ $labels.service }}{{ else }}Service{{ end }}.'
+          description: 'Категория: {{ $labels.error_kind }}; канал: {{ $labels.channel }}. Ошибок за 5 минут: {{ $values.A.Value }}.'
+          action: 'Откройте логи: там исходное исключение и доступный trace. Для JSON проверьте формат ответа и итог retry; HTTP 200 не гарантирует корректный JSON. Не перезапускайте весь pipeline; сначала определите затронутую операцию.'
+          logs_query: '{{ "{compose_project=~\".+\"} | label_format service=`{{ .service | default .compose_service | default .container_name | default \"unknown\" }}` | json event=\"message\", level_name=\"level_name\", channel=\"channel\", exception_message=\"context.exception.message\" | __error__=\"\" | level_name=~\"ERROR|CRITICAL|ALERT|EMERGENCY\" | event!=\"outbound_http_failure\" | label_format error_kind=`{{ if or (contains \"json\" (lower .event)) (contains \"json\" (lower .exception_message)) }}json{{ else }}application{{ end }}`, error_severity=`{{ if eq .level_name \"ERROR\" }}warning{{ else }}critical{{ end }}`" }}{{ if $labels.service }} | service={{ printf "%q" $labels.service }}{{ end }} | channel={{ printf "%q" $labels.channel }} | error_kind={{ printf "%q" $labels.error_kind }} | error_severity={{ printf "%q" $labels.error_severity }}'
+        labels:
+          severity: '{{ $labels.error_severity }}'
+          notification_class: application_error
+          product: symfony-template-docker

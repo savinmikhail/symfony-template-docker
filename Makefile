@@ -85,7 +85,6 @@ up-monitoring:
 	$(MAKE) reload-prometheus COMPOSE_CMD='$(MONITORING_COMPOSE)'
 
 grafana-alerting-provisioning:
-	@rm -rf $(GRAFANA_ALERTING_PROVISIONING_DIR)
 	@mkdir -p $(GRAFANA_ALERTING_PROVISIONING_DIR)
 	@cp docker/grafana/provisioning/alerting/*.yml $(GRAFANA_ALERTING_PROVISIONING_DIR)/
 	@./docker/generate-grafana-alerting.sh $(GRAFANA_ALERTING_CONTACTPOINTS)
@@ -384,3 +383,8 @@ rollback-prod:
 	$(MAKE) pull-prod-images
 	$(MAKE) switch-prod-app
 	$(MAKE) smoke-prod
+
+.PHONY: monitoring-alerts-apply
+monitoring-alerts-apply:
+	@test -n "$(GRAFANA_CONTAINER)" || { echo "Set GRAFANA_CONTAINER to the existing product Grafana container" >&2; exit 2; }
+	@python3 docker/apply-grafana-alerting.py --container "$(GRAFANA_CONTAINER)"
