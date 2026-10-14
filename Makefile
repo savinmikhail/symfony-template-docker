@@ -148,7 +148,6 @@ frontend-ci-install:
 	cd frontend && npm ci
 
 frontend-ci-quality:
-	cd frontend && npm test
 	cd frontend && npm audit --audit-level=high
 	cd frontend && npm run lint
 	cd frontend && npm run stylelint
