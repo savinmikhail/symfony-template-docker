@@ -1,0 +1,39 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: symfony-template-docker-outbound-errors
+    folder: HTTP Errors
+    interval: 30s
+    rules:
+      - uid: symfony_template_docker_outbound_http_errors
+        title: Service — ошибка внешнего HTTP-запроса
+        condition: B
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange: {from: 300, to: 0}
+            model:
+              datasource: {type: loki, uid: loki}
+              expr: 'sum by (service, integration, method, status_code, failure_kind) (count_over_time({compose_project=~".+"} | label_format service=`{{ .service | default .compose_service | default .container_name | default "unknown" }}` | json event="message", integration="context.integration", method="context.method", status_code="context.status_code", failure_kind="context.failure_kind" | __error__="" | event="outbound_http_failure" | label_format status_code=`{{ .status_code | default "none" }}` [5m]))'
+              queryType: instant
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: {from: 0, to: 0}
+            model:
+              datasource: {type: __expr__, uid: __expr__}
+              type: math
+              refId: B
+              expression: $A > 0
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: 'Внешний запрос {{ $labels.method }} к {{ $labels.integration }} завершился ошибкой.'
+          description: 'HTTP: {{ if eq $labels.status_code "none" }}нет ответа{{ else }}{{ $labels.status_code }}{{ end }}; причина: {{ if eq $labels.failure_kind "timeout" }}таймаут{{ else if eq $labels.failure_kind "transport" }}ошибка соединения{{ else }}ошибочный HTTP-статус{{ end }}; сервис: {{ if $labels.service }}{{ $labels.service }}{{ else }}Service{{ end }}. Ошибок за 5 минут: {{ $values.A.Value }}.'
+          action: 'Откройте логи и проверьте причину и результат повторной попытки. Ожидаемые HTTP-статусы исключаются в месте вызова. Это событие само по себе не означает окончательный сбой задачи.'
+          logs_query: '{{ "{compose_project=~\".+\"} | label_format service=`{{ .service | default .compose_service | default .container_name | default \"unknown\" }}` | json event=\"message\", integration=\"context.integration\", method=\"context.method\", status_code=\"context.status_code\", failure_kind=\"context.failure_kind\" | __error__=\"\" | event=\"outbound_http_failure\" | label_format status_code=`{{ .status_code | default \"none\" }}`" }}{{ if $labels.service }} | service={{ printf "%q" $labels.service }}{{ end }} | integration={{ printf "%q" $labels.integration }} | method={{ printf "%q" $labels.method }} | status_code={{ printf "%q" $labels.status_code }} | failure_kind={{ printf "%q" $labels.failure_kind }}'
+        labels:
+          severity: warning
+          notification_class: outbound_http
+          product: symfony-template-docker
