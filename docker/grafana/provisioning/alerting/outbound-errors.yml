@@ -1,11 +1,11 @@
 apiVersion: 1
 groups:
   - orgId: 1
-    name: symfony-template-docker-outbound-errors
+    name: service-outbound-errors
     folder: HTTP Errors
     interval: 30s
     rules:
-      - uid: symfony_template_docker_outbound_http_errors
+      - uid: service_outbound_http_errors
         title: Service — ошибка внешнего HTTP-запроса
         condition: B
         data:
@@ -36,4 +36,4 @@ groups:
         labels:
           severity: warning
           notification_class: outbound_http
-          product: symfony-template-docker
+          product: service
