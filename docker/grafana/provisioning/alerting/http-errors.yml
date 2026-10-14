@@ -3,11 +3,11 @@ apiVersion: 1
 # Access logs also cover upstream 502/504 and the first error after a counter reset.
 groups:
   - orgId: 1
-    name: symfony-template-docker-http-errors
+    name: service-http-errors
     folder: HTTP Errors
     interval: 30s
     rules:
-      - uid: symfony_template_docker_nginx_http_5xx
+      - uid: service_nginx_http_5xx
         title: Service — пользователи получают HTTP 5xx
         condition: B
         data:
@@ -43,4 +43,4 @@ groups:
         labels:
           severity: critical
           notification_class: http_5xx
-          product: symfony-template-docker
+          product: service

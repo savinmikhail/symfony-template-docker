@@ -1,4 +1,4 @@
-{{ define "symfony-template-docker.message" -}}
+{{ define "service.message" -}}
 {{ range $index, $alert := .Alerts -}}
 {{ if lt $index 3 -}}
 {{ if eq .Status "firing" }}{{ if eq .Labels.severity "critical" }}🔴{{ else }}⚠️{{ end }} Срабатывание{{ else }}✅ Условие алерта больше не выполняется{{ end }} · Service

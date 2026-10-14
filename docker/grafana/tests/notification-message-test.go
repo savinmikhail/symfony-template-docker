@@ -71,7 +71,7 @@ func main() {
 		}
 		queries[rule.UID] = annotations["logs_query"]
 		check(annotations["logs_query"] != "", rule.UID+": no log query")
-		if rule.UID == "symfony_template_docker_outbound_http_errors" {
+		if rule.UID == "service_outbound_http_errors" {
 			check(strings.Contains(annotations["logs_query"], "{{ .status_code | default \"none\" }}"), "LogQL template consumed as annotation template")
 			check(strings.Contains(annotations["description"], "502"), "status missing")
 			check(strings.Contains(annotations["description"], "7"), "count missing")
@@ -80,7 +80,7 @@ func main() {
 			alert := Alert{Status: status, Labels: labels, Annotations: annotations, StartsAt: start, EndsAt: start.Add(5 * time.Minute), GeneratorURL: "https://example.org/grafana/alerting/test?orgId=1&x=2"}
 			n := Notification{ExternalURL: "https://example.org/grafana/", Alerts: []Alert{alert}}
 			var rendered bytes.Buffer
-			err := tmpl.ExecuteTemplate(&rendered, "symfony-template-docker.message", n)
+			err := tmpl.ExecuteTemplate(&rendered, "service.message", n)
 			if err != nil {
 				panic(err)
 			}
@@ -110,7 +110,7 @@ func main() {
 			check(len(text) < 4096, rule.UID+": Telegram message too long")
 			n.Alerts = []Alert{alert, alert, alert, alert}
 			rendered.Reset()
-			if err := tmpl.ExecuteTemplate(&rendered, "symfony-template-docker.message", n); err != nil {
+			if err := tmpl.ExecuteTemplate(&rendered, "service.message", n); err != nil {
 				panic(err)
 			}
 			check(len([]rune(rendered.String())) < 4096, rule.UID+": grouped Telegram message too long")
@@ -120,7 +120,7 @@ func main() {
 	// Legacy log streams may have no Compose service label. Keep the incident
 	// readable and its log link usable instead of filtering by a missing value.
 	for _, rule := range manifest.Rules {
-		if rule.UID != "symfony_template_docker_application_errors" && rule.UID != "symfony_template_docker_outbound_http_errors" {
+		if rule.UID != "service_application_errors" && rule.UID != "service_outbound_http_errors" {
 			continue
 		}
 		labels := map[string]string{"method": "POST", "integration": "example.org", "status_code": "502", "failure_kind": "http_status", "error_kind": "json", "error_severity": "warning", "channel": "app"}
@@ -143,7 +143,7 @@ func main() {
 	// No raw exception can introduce HTML into Telegram.
 	hostile := Alert{Status: "firing", Labels: map[string]string{"severity": "critical"}, Annotations: map[string]string{"summary": "bad <script>& JSON", "description": "<secret>", "action": "<retry>"}}
 	var rendered bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&rendered, "symfony-template-docker.message", Notification{Alerts: []Alert{hostile, hostile, hostile, hostile}}); err != nil {
+	if err := tmpl.ExecuteTemplate(&rendered, "service.message", Notification{Alerts: []Alert{hostile, hostile, hostile, hostile}}); err != nil {
 		panic(err)
 	}
 	check(!strings.Contains(rendered.String(), "<script>"), "HTML not escaped")

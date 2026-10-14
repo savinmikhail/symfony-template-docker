@@ -1,11 +1,11 @@
 apiVersion: 1
 groups:
   - orgId: 1
-    name: symfony-template-docker-application-errors
+    name: service-application-errors
     folder: Application Errors
     interval: 30s
     rules:
-      - uid: symfony_template_docker_application_errors
+      - uid: service_application_errors
         title: Service — ошибки приложения
         condition: B
         data:
@@ -36,4 +36,4 @@ groups:
         labels:
           severity: '{{ $labels.error_severity }}'
           notification_class: application_error
-          product: symfony-template-docker
+          product: service

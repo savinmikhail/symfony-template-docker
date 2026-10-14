@@ -71,9 +71,9 @@ apiVersion: 1
 
 contactPoints:
   - orgId: 1
-    name: symfony-template-docker-telegram
+    name: service-telegram
     receivers:
-      - uid: symfony_template_docker_telegram
+      - uid: service_telegram
         type: telegram
         disableResolveMessage: false
         settings:
@@ -81,12 +81,12 @@ contactPoints:
           chatid: "${chat_id}"
           parse_mode: HTML
           message: |
-            {{ template "symfony-template-docker.message" . }}
+            {{ template "service.message" . }}
 
   - orgId: 1
-    name: symfony-template-docker-telegram-events
+    name: service-telegram-events
     receivers:
-      - uid: symfony_template_docker_telegram_events
+      - uid: service_telegram_events
         type: telegram
         disableResolveMessage: true
         settings:
@@ -94,11 +94,11 @@ contactPoints:
           chatid: "${chat_id}"
           parse_mode: HTML
           message: |
-            {{ template "symfony-template-docker.message" . }}
+            {{ template "service.message" . }}
 
 policies:
   - orgId: 1
-    receiver: symfony-template-docker-telegram
+    receiver: service-telegram
     group_by:
       - grafana_folder
       - alertname
@@ -115,11 +115,11 @@ policies:
     repeat_interval: 4h
     routes:
       # Log event windows expiring do not prove that their causes were fixed.
-      - receiver: symfony-template-docker-telegram-events
+      - receiver: service-telegram-events
         object_matchers:
           - ['notification_class', '=~', 'application_error|outbound_http|http_5xx|log_event']
         continue: false
-      - receiver: symfony-template-docker-telegram
+      - receiver: service-telegram
         object_matchers:
           - ['severity', '=~', 'critical|warning']
         continue: false
@@ -130,7 +130,7 @@ cat >> "${output_path}" <<'EOF'
 
 templates:
   - orgId: 1
-    name: symfony-template-docker.message
+    name: service.message
     template: |
 EOF
 sed 's/^/      /' "$script_dir/grafana/notification-message.tmpl" >> "${output_path}"
