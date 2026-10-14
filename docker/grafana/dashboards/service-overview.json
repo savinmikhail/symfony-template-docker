@@ -511,7 +511,7 @@
         {
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{compose_service=\"php\"} |~ \"ERROR|CRITICAL|Uncaught|Exception\"",
+          "expr": "{compose_service=\"php\"} | json level_name=\"level_name\" | __error__=\"\" | level_name=~\"ERROR|CRITICAL|ALERT|EMERGENCY\"",
           "limit": 100
         }
       ],
