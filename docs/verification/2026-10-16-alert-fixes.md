@@ -19,3 +19,9 @@ security and logging changes with different patches. The pre-existing commits
 were preserved. No force push, reset, rebase of earlier work, or broad merge was
 performed. Review which earlier local changes should be retained before publishing
 this branch. The two current fixes can be ported independently after that decision.
+
+The later shared-host deployment incident also produced a mirrored
+`fix(deploy): isolate remote registry credentials per run` commit on local main.
+Its actual deployment shell blocks pass concurrent fake-host tests: success,
+failed-deploy cleanup, and syntax checks. This addition remains unpublished with
+the same history-reconciliation decision. Production secret files were not changed.
