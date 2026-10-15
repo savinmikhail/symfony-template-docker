@@ -14,7 +14,10 @@ policy = config.fetch('policies').first
 end
 contact = config.fetch('contactPoints').find { |c| c.fetch('name') == policy.fetch('receiver') }
 raise 'True recovery disabled' unless contact.fetch('receivers').all? { |r| !r.fetch('disableResolveMessage') }
-rules = Dir['docker/grafana/provisioning/alerting/*.yml'].flat_map { |p| YAML.load_file(p).fetch('groups', []).flat_map { |g| g.fetch('rules') } }
+groups = Dir['docker/grafana/provisioning/alerting/*.yml'].flat_map { |p| YAML.load_file(p).fetch('groups', []) }
+identities = groups.flat_map { |g| g.fetch('rules').map { |r| [g.fetch('orgId', 1), g.fetch('folder'), r.fetch('title')] } }
+raise 'Duplicate alert title in organisation/folder' unless identities.length == identities.uniq.length
+rules = groups.flat_map { |g| g.fetch('rules') }
 puts JSON.generate({'Template'=>config.fetch('templates').first.fetch('template'), 'Rules'=>rules})
 RUBY
 GOCACHE=${GOCACHE:-/tmp/mentoring-alert-go-cache} go run docker/grafana/tests/notification-message-test.go "$work/manifest.json"
