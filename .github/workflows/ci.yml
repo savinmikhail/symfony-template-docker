@@ -119,6 +119,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - name: Validate deployment credential isolation
+        run: python3 scripts/tests/deploy_registry_config_test.py
       - run: make kics-high
 
   production-images:

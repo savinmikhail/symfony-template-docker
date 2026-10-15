@@ -38,8 +38,18 @@ jobs:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          printf '%s' "${GHCR_TOKEN}" | ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "docker login ghcr.io --username '${GHCR_USERNAME}' --password-stdin"
-          ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s -- "${DEPLOY_PATH}" "${DEPLOY_TAG}" <<'EOF'
+          registry_ssh=(ssh -i "${HOME}/.ssh/id_deploy" -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}")
+          registry_config="$("${registry_ssh[@]}" 'umask 077; mktemp -d /tmp/mentoring-registry.XXXXXXXX')"
+          if [[ ! "${registry_config}" =~ ^/tmp/mentoring-registry\.[A-Za-z0-9]+$ ]]; then
+            echo 'Invalid isolated registry config path.' >&2
+            exit 1
+          fi
+          cleanup_registry_config() {
+            "${registry_ssh[@]}" "rm -rf -- '${registry_config}'" >/dev/null 2>&1 || true
+          }
+          trap cleanup_registry_config EXIT
+          printf '%s' "${GHCR_TOKEN}" | ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "DOCKER_CONFIG='${registry_config}' docker login ghcr.io --username '${GHCR_USERNAME}' --password-stdin"
+          ssh -i ~/.ssh/id_deploy -p "${DEPLOY_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" env "DOCKER_CONFIG=${registry_config}" bash -s -- "${DEPLOY_PATH}" "${DEPLOY_TAG}" <<'EOF'
           set -eu
           DEPLOY_PATH="$1"; DEPLOY_TAG="$2"; cd "${DEPLOY_PATH}"
           git fetch origin main --prune --tags
