@@ -38,33 +38,38 @@ final class OutboundErrorHttpClient implements HttpClientInterface
             $recorded = true;
             $this->logger->error('outbound_http_failure', [
                 'event' => 'outbound_http_failure',
-                'integration' => parse_url($actualUrl, PHP_URL_HOST) ?: 'unknown',
-                'method' => strtoupper($method),
+                'integration' => parse_url(url: $actualUrl, component: PHP_URL_HOST) ?: 'unknown',
+                'method' => strtoupper(string: $method),
                 'failure_kind' => $kind,
                 'status_code' => $status,
             ]);
         };
 
         try {
-            return new AsyncResponse($this->client, $method, $url, $options, static function (ChunkInterface $chunk, AsyncContext $context) use ($url, $expected, $record): \Generator {
+            return new AsyncResponse(client: $this->client, method: $method, url: $url, options: $options, passthru: static function (ChunkInterface $chunk, AsyncContext $context) use ($url, $expected, $record): \Generator {
                 try {
                     if ($chunk->isTimeout()) {
                         $record('timeout', null, $url);
                     } elseif ($chunk->isFirst()) {
                         $status = $context->getStatusCode();
-                        if ($status >= 400 && !in_array($status, $expected, true)) {
-                            $record('http_status', $status, (string) $context->getInfo('url'));
+                        if ($status >= 400 && !in_array(needle: $status, haystack: $expected, strict: true)) {
+                            $record('http_status', $status, (string) $context->getInfo(type: 'url'));
                         }
                     }
                 } catch (TransportExceptionInterface $exception) {
-                    $record('transport', null, $url);
+                    $record(self::transportFailureKind(exception: $exception), null, $url);
                     throw $exception;
                 }
                 yield $chunk;
             });
         } catch (TransportExceptionInterface $exception) {
-            $record('transport', null, $url);
+            $record(self::transportFailureKind(exception: $exception), null, $url);
             throw $exception;
         }
+    }
+
+    private static function transportFailureKind(TransportExceptionInterface $exception): string
+    {
+        return 1 === preg_match(pattern: '/timed out|timeout|max duration/i', subject: $exception->getMessage()) ? 'timeout' : 'transport';
     }
 }
