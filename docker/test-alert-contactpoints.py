@@ -11,11 +11,11 @@ for generator in sys.argv[1:]:
         target = Path(directory) / "contactpoints.yml"
         env = dict(os.environ, APP_GRAFANA_TELEGRAM_ENABLED="1",
                    APP_GRAFANA_TELEGRAM_BOT_TOKEN="fixture-secret-token",
-                   APP_GRAFANA_TELEGRAM_CHAT_ID="fixture-chat")
+                   APP_GRAFANA_TELEGRAM_CHAT_ID="@fixture_channel")
         subprocess.run(["sh", generator, str(target)], env=env, check=True)
         text = target.read_text()
         assert "fixture-secret-token" not in text
-        assert "fixture-chat" not in text
+        assert 'chatid: "@fixture_channel"' in text
         assert "type: email" not in text
         assert "type: telegram" in text
         assert "$APP_GRAFANA_TELEGRAM_BOT_TOKEN" in text
