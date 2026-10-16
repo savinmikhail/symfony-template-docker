@@ -33,3 +33,4 @@ USER nginx
 # Standalone remains the default; shell-hosted services select target: api-only.
 FROM api-only AS prod
 COPY --from=frontend-build /app/dist/ /var/www/app/public/
+USER nginx
