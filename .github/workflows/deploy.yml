@@ -19,6 +19,7 @@ concurrency: { group: production-deploy, cancel-in-progress: false }
 
 jobs:
   deploy:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     environment: production
     steps:

@@ -458,3 +458,26 @@ LAN/VPN. Other daemon errors stop startup; foreign networks are never deleted or
 reconfigured. Run `python3 scripts/tests/compose_network_test.py` for the helper's
 unit checks. Services can reuse `docker/ensure-compose-network.py PROJECT` from
 local Task/Make wrappers; production deployment should keep its configured networks.
+## Production image security
+
+CI builds every production-image matrix entry locally and runs the [official Docker Scout action](https://github.com/docker/scout-action) independently of KICS. Publication waits for the Scout gate. Fixable High/Critical findings fail the gate; unresolved findings without an available fix do not. SARIF reports are retained as artifacts. Existing Composer/npm audits remain unchanged. Dev/CI images are excluded.
+
+Scout requires an authenticated Docker Hub session on the runner (including hosted runners); GHCR authentication alone does not provide it. Configure repository or organization secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub PAT) before enabling this workflow. Values are never stored in the repository. The official action receives these credentials directly. Local equivalent after building the production target: `make image-scout IMAGE=<image>`. Vulnerability results must never be cached by Task sources/status.
+
+Application diagnostics use an internal nginx listener on port 8081. Do not publish or proxy this port; monitoring targets use it directly on the container network. The public application listener denies diagnostic endpoints.
+
+Temporary npm audit exception: only dev-only braces 3.0.3 advisory GHSA-vfj7-8cjw-p6xm, approved 2026-10-12, expires 2026-11-08 UTC. Other High/Critical, production dependencies and incomplete audit responses still fail. Remove when a patched release is available.
+
+### Parallel CI scanners and Alpine downloads
+
+Scout uses a separate cache for each CI matrix job and run attempt, preventing lock contention between shared-host runners. Alpine stages default to the tested HTTPS mirror `https://dl-4.alpinelinux.org/alpine`; override the `ALPINE_MIRROR` build argument to change it. Repository release paths and APK signature verification remain unchanged. Debian-based stages are unaffected.
+
+### CI execution budgets
+
+Release checks, deployment and rollback jobs have a 10-minute execution budget; image builds have 20 minutes. Interviews PHP media builds allow 30 minutes for cold FFmpeg compilation. Scout has a separate 10-minute step budget. GitHub cancels an over-budget job; queue waiting time is not included. Existing APK network timeouts and isolated Scout caches bound the known failure modes. Manual backup restore and dedicated external runner provisioning keep their separate operational budgets.
+
+Prefer a newer release containing the required changes over waiting for an obsolete candidate. Cancel superseded CI only after checking its ownership and deployment state; never interrupt an active production deployment or migration merely to prioritize another tag. Production deployment concurrency remains serialized.
+
+### Tag release supersession
+
+Tag-push CI runs share a cancelable release group. PR checks retain separate groups per PR; manual checks retain their ref group. Successful tag CI triggers the independent Release workflow, which verifies the exact checked tag SHA and skips superseded semantic-version tags. Release serializes deployment and module publication without canceling an active rollout. Existing manual deploy/rollback entry points remain available. During migration, tags without release.yml keep their original inline deploy only. The template itself has no production target.

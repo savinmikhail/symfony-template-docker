@@ -11,14 +11,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'release-tags' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   ci-php-image:
+    timeout-minutes: 20
     name: CI PHP image
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     permissions: { contents: read, packages: write }
     steps:
       - uses: actions/checkout@v6
@@ -46,17 +46,17 @@ jobs:
           cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref=ghcr.io/{0}-php-ci:buildcache,mode=max', github.repository) || '' }}
 
   backend-quality:
+    timeout-minutes: 10
     name: Backend quality (${{ matrix.check }})
-    needs: ci-php-image
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions: { contents: read, packages: read }
     strategy:
       fail-fast: false
       matrix:
         check: [composer-validate, composer-audit, phpstan, phpat, dep-analyse, cs-check, rector-check, prod-di-validate]
+    needs: ci-php-image
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: read }
     env:
-      COMPOSE_PROJECT_NAME: template-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+      COMPOSE_PROJECT_NAME: template-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.check }}
       APP_CI_PHP_IMAGE: ghcr.io/${{ github.repository }}-php-ci
       APP_CI_IMAGE_TAG: ${{ github.sha }}
     steps:
@@ -66,19 +66,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: make ci-pull-php
-      - run: make ci-up-php
-      - run: make ${{ matrix.check }}
+      - run: make ci-pull-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ci-up-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ${{ matrix.check }} COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
       - if: failure()
         run: docker compose logs --no-color php
       - if: always()
-        run: make ci-down
+        run: make ci-down COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
 
   backend-tests:
+    timeout-minutes: 10
     name: Backend tests
     needs: ci-php-image
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     permissions: { contents: read, packages: read }
     env:
       COMPOSE_PROJECT_NAME: template-${{ github.run_id }}-${{ github.run_attempt }}-tests
@@ -91,18 +91,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: make ci-pull-php
-      - run: make ci-up-tests
-      - run: make test
+      - run: make ci-pull-php COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make ci-up-tests COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+      - run: make test COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
       - if: failure()
         run: docker compose logs --no-color db redis rabbitmq php
       - if: always()
-        run: make ci-down
+        run: make ci-down COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
 
   frontend-quality:
+    timeout-minutes: 10
     name: Frontend quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -114,9 +114,9 @@ jobs:
       - run: make frontend-ci-quality
 
   infrastructure-quality:
+    timeout-minutes: 10
     name: Infrastructure quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - name: Validate deployment credential isolation
@@ -124,10 +124,10 @@ jobs:
       - run: make kics-high
 
   production-images:
-    name: Production image (${{ matrix.name }})
+    timeout-minutes: 20
     needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality]
+    name: Production image (${{ matrix.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     permissions: { contents: read, packages: write }
     strategy:
       fail-fast: false
@@ -161,16 +161,15 @@ jobs:
             APP_VERSION=${{ github.ref_name }}
           cache-from: |
             type=gha,scope=${{ matrix.cache }}
-            ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache', github.repository, matrix.name) || '' }}
+            type=registry,ref=ghcr.io/${{ github.repository }}-${{ matrix.name }}:buildcache
           cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache,mode=max', github.repository, matrix.name) || '' }}
 
       - name: Scan fixable high and critical vulnerabilities
         uses: docker/scout-action@v1
         timeout-minutes: 10
         env:
-          DOCKER_SCOUT_NO_CACHE: true
-          DOCKER_SCOUT_CACHE_DIR: ${{ runner.temp }}/scout-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/scout-index-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}
+          DOCKER_SCOUT_CACHE_DIR: ${{ runner.temp }}/scout-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.name }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/scout-index-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.name }}
         with:
           command: cves
           dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -188,6 +187,7 @@ jobs:
           name: scout-${{ matrix.name }}
           path: scout-${{ matrix.name }}.sarif.json
           if-no-files-found: warn
+
       - name: Publish the scanned local image
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         env:
@@ -200,23 +200,3 @@ jobs:
       - name: Remove local production image
         if: always()
         run: docker image rm ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }} >/dev/null 2>&1 || true
-
-  cleanup-ci-php-image:
-    name: Clean up CI PHP image
-    needs: [ci-php-image, backend-quality, backend-tests]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Remove temporary CI image
-        run: docker image rm ghcr.io/${{ github.repository }}-php-ci:${{ github.sha }} >/dev/null 2>&1 || true
-
-  deploy:
-    name: Deploy
-    # The template publishes release tags but has no production target of its own.
-    if: github.repository != 'savinmikhail/symfony-template-docker' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality, production-images]
-    permissions: { contents: read, packages: read }
-    uses: ./.github/workflows/deploy.yml
-    with:
-      tag: ${{ github.ref_name }}
-    secrets: inherit

@@ -147,7 +147,7 @@ frontend-ci-install:
 	cd frontend && npm ci
 
 frontend-ci-quality:
-	cd frontend && npm audit --audit-level=high
+	cd frontend && node --test scripts/audit-exception.test.mjs && node scripts/audit-exception.mjs
 	cd frontend && npm run lint
 	cd frontend && npm run stylelint
 	cd frontend && npm run build
@@ -355,7 +355,7 @@ switch-prod-app:
 smoke-prod:
 	@attempt=1; \
 	while [ "$$attempt" -le 10 ]; do \
-		if $(PROD_COMPOSE) exec -T nginx wget -q -O /dev/null http://127.0.0.1:8080/metrics; then \
+		if $(PROD_COMPOSE) exec -T nginx wget -q -O /dev/null http://127.0.0.1:8081/metrics; then \
 			echo "Production HTTP smoke passed."; \
 			exit 0; \
 		fi; \
@@ -383,6 +383,13 @@ rollback-prod:
 	$(MAKE) pull-prod-images
 	$(MAKE) switch-prod-app
 	$(MAKE) smoke-prod
+
+# Fresh vulnerability data: never wrap this target in a checksum/status cache.
+SCOUT ?= docker scout
+.PHONY: image-scout
+image-scout:
+	@test -n "$(IMAGE)" || { echo 'Usage: make image-scout IMAGE=<local-production-image>' >&2; exit 1; }
+	$(SCOUT) cves --only-severity critical,high --only-fixed --exit-code "local://$(IMAGE)"
 
 .PHONY: monitoring-alerts-apply
 monitoring-alerts-apply:

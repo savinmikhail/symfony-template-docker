@@ -2,7 +2,9 @@
 # kics-scan ignore-line
 FROM alpine:3.21
 
-RUN apk add --no-cache \
+ARG ALPINE_MIRROR=https://dl-4.alpinelinux.org/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk/repositories \
+    && apk add --no-cache \
     postgresql16-client \
     rclone \
     tzdata
