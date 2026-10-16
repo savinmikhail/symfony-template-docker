@@ -50,6 +50,7 @@ jobs:
     name: Backend quality (${{ matrix.check }})
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(vars.CI_MATRIX_MAX_PARALLEL || '4') }}
       matrix:
         check: [composer-validate, composer-audit, phpstan, phpat, dep-analyse, cs-check, rector-check, prod-di-validate]
     needs: ci-php-image
@@ -133,6 +134,7 @@ jobs:
     permissions: { contents: read, packages: write }
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(vars.CI_MATRIX_MAX_PARALLEL || '4') }}
       matrix:
         include:
           - { name: php, file: docker/php/Dockerfile, target: prod, cache: template-php-prod }

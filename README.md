@@ -481,3 +481,16 @@ Prefer a newer release containing the required changes over waiting for an obsol
 ### Tag release supersession
 
 Tag-push CI runs share a cancelable release group. PR checks retain separate groups per PR; manual checks retain their ref group. Successful tag CI triggers the independent Release workflow, which verifies the exact checked tag SHA and skips superseded semantic-version tags. Release serializes deployment and module publication without canceling an active rollout. Existing manual deploy/rollback entry points remain available. During migration, tags without release.yml keep their original inline deploy only. The template itself has no production target.
+
+### CI matrix parallelism
+
+CI matrices use the non-secret GitHub Actions configuration variable
+`CI_MATRIX_MAX_PARALLEL`, falling back to **4** when it is unset. Set a positive
+integer at organization level to change all opted-in product repositories;
+a repository variable can override it. The standalone template can use a
+repository variable. This is an Actions `vars` value, not a secret or a shell
+`env` value, because matrix scheduling happens before a runner starts.
+
+The setting caps each matrix; the shared runner pool bounds total concurrency
+across workflows and repositories. CI cancellation for superseded refs and
+production deploy/rollback/restore concurrency locks remain independent.
