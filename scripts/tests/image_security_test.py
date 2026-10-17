@@ -9,7 +9,7 @@ SCRIPT = Path(__file__).resolve().parents[2] / 'docker/audit-image-security.sh'
 
 
 class ImageSecurityTest(unittest.TestCase):
-    def run_gate(self, failure=''):
+    def run_gate(self, failure='', builder=''):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -24,7 +24,7 @@ if os.environ.get('FAILURE') == 'scan' and sys.argv[1:3] == ['scout', 'cves']: s
             calls = root / 'calls'
             result = subprocess.run(['bash', str(SCRIPT), 'fixture:local', 'Dockerfile', 'prod'],
                                     env={**os.environ, 'PATH': f'{root}:{os.environ["PATH"]}',
-                                         'CALLS': str(calls), 'FAILURE': failure}, capture_output=True)
+                                         'CALLS': str(calls), 'FAILURE': failure, 'DOCKER_SCOUT_BUILDER': builder}, capture_output=True)
             return result.returncode, [json.loads(line) for line in calls.read_text().splitlines()]
 
     def test_builds_production_architecture_then_freshly_scans(self):
@@ -34,6 +34,12 @@ if os.environ.get('FAILURE') == 'scan' and sys.argv[1:3] == ['scout', 'cves']: s
         self.assertEqual(calls[2]['args'], ['scout', 'cves', '--only-severity', 'critical,high', '--only-fixed', '--exit-code', 'local://fixture:local'])
         self.assertEqual(calls[2]['fresh'], 'true')
         self.assertFalse(Path(calls[2]['cache']).exists())
+
+    def test_explicit_builder_only_applies_to_build(self):
+        code, calls = self.run_gate(builder='isolated-security')
+        self.assertEqual(code, 0)
+        self.assertIn('isolated-security', calls[1]['args'])
+        self.assertNotIn('isolated-security', calls[2]['args'])
 
     def test_scan_failure_blocks_gate(self):
         code, calls = self.run_gate('scan')

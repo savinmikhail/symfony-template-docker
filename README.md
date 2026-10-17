@@ -502,6 +502,6 @@ for `linux/amd64` before publication. Run `make production-image-security` for
 only this gate. Docker Scout must be installed and authenticated. Fixable high
 or critical findings and scanner errors stop the gate. Build layers remain
 reusable; each scan disables Scout caching and uses its own temporary directory.
-The helper accepts `DOCKER_SCOUT_PLATFORM`, `DOCKER_SCOUT_CONTEXT`, and optional
+The helper accepts `DOCKER_SCOUT_PLATFORM`, `DOCKER_SCOUT_CONTEXT`, `DOCKER_SCOUT_BUILDER`, and optional
 `DOCKER_SCOUT_BUILD_CACHE_FROM`; generated projects should configure their own
 production image list and registry cache references.

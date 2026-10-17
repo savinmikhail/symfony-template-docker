@@ -9,6 +9,7 @@ context="${DOCKER_SCOUT_CONTEXT:-.}"
 # Fail before building when the local Scout plugin is missing.
 docker scout version >/dev/null
 args=(buildx build --load --platform "$platform" --file "$dockerfile" --tag "$image")
+if [[ -n "${DOCKER_SCOUT_BUILDER:-}" ]]; then args+=(--builder "$DOCKER_SCOUT_BUILDER"); fi
 if [[ -n "$target" ]]; then args+=(--target "$target"); fi
 if [[ -n "${DOCKER_SCOUT_BUILD_CACHE_FROM:-}" ]]; then
   args+=(--cache-from "type=registry,ref=$DOCKER_SCOUT_BUILD_CACHE_FROM")
