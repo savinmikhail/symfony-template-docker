@@ -229,6 +229,7 @@ quality:
 	$(MAKE) frontend-ci-quality
 	$(MAKE) backend-quality
 	$(MAKE) test
+	$(MAKE) production-image-security
 
 quality-dr: quality
 
@@ -395,3 +396,10 @@ image-scout:
 monitoring-alerts-apply:
 	@test -n "$(GRAFANA_CONTAINER)" || { echo "Set GRAFANA_CONTAINER to the existing product Grafana container" >&2; exit 2; }
 	@python3 docker/apply-grafana-alerting.py --container "$(GRAFANA_CONTAINER)"
+
+# Build layers may be cached; Scout advisory data is always refreshed.
+.PHONY: production-image-security
+production-image-security:
+	python3 scripts/tests/image_security_test.py
+	./docker/audit-image-security.sh symfony-template-security-php:local docker/php/Dockerfile prod
+	./docker/audit-image-security.sh symfony-template-security-nginx:local docker/nginx/Dockerfile prod

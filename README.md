@@ -494,3 +494,14 @@ repository variable. This is an Actions `vars` value, not a secret or a shell
 The setting caps each matrix; the shared runner pool bounds total concurrency
 across workflows and repositories. CI cancellation for superseded refs and
 production deploy/rollback/restore concurrency locks remain independent.
+
+### Local production image security gate
+
+`make quality` and `make tag` build and scan the PHP/nginx production targets
+for `linux/amd64` before publication. Run `make production-image-security` for
+only this gate. Docker Scout must be installed and authenticated. Fixable high
+or critical findings and scanner errors stop the gate. Build layers remain
+reusable; each scan disables Scout caching and uses its own temporary directory.
+The helper accepts `DOCKER_SCOUT_PLATFORM`, `DOCKER_SCOUT_CONTEXT`, and optional
+`DOCKER_SCOUT_BUILD_CACHE_FROM`; generated projects should configure their own
+production image list and registry cache references.
