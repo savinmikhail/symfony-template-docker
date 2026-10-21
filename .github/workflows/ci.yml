@@ -16,7 +16,8 @@ concurrency:
 
 jobs:
   ci-php-image:
-    timeout-minutes: 20
+    # Emergency PHP source rebuilds need headroom for compile, dependencies and cache export.
+    timeout-minutes: 40
     name: CI PHP image
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: write }
@@ -127,7 +128,8 @@ jobs:
       - run: make kics-high
 
   production-images:
-    timeout-minutes: 20
+    # Emergency PHP source rebuilds need headroom for compile, dependencies and cache export.
+    timeout-minutes: 40
     needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality]
     name: Production image (${{ matrix.name }})
     runs-on: ubuntu-latest
