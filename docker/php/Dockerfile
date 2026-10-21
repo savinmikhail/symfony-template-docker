@@ -1,6 +1,15 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-FROM php:8.4-fpm-trixie@sha256:1071b5609d16d60674f78eea8cf9bd7e9e79169ecb566d015c931c5ee789bb13 AS php-runtime
+# Temporary official-source rebuild for CVE-2026-109618/CVE-2026-109619.
+FROM php:8.4-fpm-trixie@sha256:1071b5609d16d60674f78eea8cf9bd7e9e79169ecb566d015c931c5ee789bb13 AS php-security-runtime
+ENV PHP_VERSION=8.4.27 \
+    PHP_URL=https://www.php.net/distributions/php-8.4.27.tar.xz \
+    PHP_ASC_URL=https://www.php.net/distributions/php-8.4.27.tar.xz.asc \
+    PHP_SHA256=dcf93923b0e38e0d5252b25b796520b5a47761a08b3488b6d0b5d1115764d3f0
+COPY docker/security/rebuild-php.sh /tmp/rebuild-php.sh
+RUN sh /tmp/rebuild-php.sh "$PHP_VERSION" "$PHP_SHA256" && rm /tmp/rebuild-php.sh
+
+FROM php-security-runtime AS php-runtime
 
 WORKDIR /var/www/app
 
@@ -71,8 +80,10 @@ ARG HOST_GID=1000
 
 # Pin the PECL extension too, so the dev layer does not drift on rebuild.
 COPY --from=mlocati/php-extension-installer:2.12.0@sha256:1afade3e29cfc97362cf5885e5ac333bf2faab1146cb28ebbb59b17e68f87e88 /usr/bin/install-php-extensions /usr/local/bin/
+# PECL download endpoint returns HTTP 500; use the same official release.
+ADD --checksum=sha256:f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d https://xdebug.org/files/xdebug-3.5.3.tgz /tmp/xdebug.tgz
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions xdebug-3.5.3 && \
+    tar -xzf /tmp/xdebug.tgz -C /tmp && mv /tmp/package.xml /tmp/xdebug-3.5.3/package.xml && install-php-extensions /tmp/xdebug-3.5.3 && rm -rf /tmp/xdebug-3.5.3 /tmp/package.xml /tmp/xdebug.tgz && \
     rm -f /usr/local/bin/install-php-extensions
 
 RUN groupmod -o -g "${HOST_GID}" www-data \
