@@ -1,20 +1,13 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-# Temporary official-source rebuild for CVE-2026-109618/CVE-2026-109619.
-FROM php:8.4-fpm-trixie@sha256:1071b5609d16d60674f78eea8cf9bd7e9e79169ecb566d015c931c5ee789bb13 AS php-security-runtime
-ENV PHP_VERSION=8.4.27 \
-    PHP_URL=https://www.php.net/distributions/php-8.4.27.tar.xz \
-    PHP_ASC_URL=https://www.php.net/distributions/php-8.4.27.tar.xz.asc \
-    PHP_SHA256=dcf93923b0e38e0d5252b25b796520b5a47761a08b3488b6d0b5d1115764d3f0
-COPY docker/security/rebuild-php.sh /tmp/rebuild-php.sh
-RUN sh /tmp/rebuild-php.sh "$PHP_VERSION" "$PHP_SHA256" && rm /tmp/rebuild-php.sh
+FROM php:8.4.27-fpm-trixie@sha256:e2d8e787dc775bdbd9d7e0c5e8f2f9ddb41ce5977c8bbaf99a2ba2e7d90fd8ae AS php-base
 
-FROM php-security-runtime AS php-runtime
+FROM php-base AS php-runtime
 
 WORKDIR /var/www/app
 
 # Use HTTPS mirrors reachable by runners and tolerate transient download failures.
-RUN sed -i -e 's|http://deb.debian.org/debian-security|https://security.debian.org/debian-security|g' -e 's|http://deb.debian.org/debian|https://mirrors.kernel.org/debian|g' /etc/apt/sources.list.d/debian.sources \
+RUN sed -i -e 's|http://deb.debian.org/debian-security|https://security.debian.org/debian-security|g' -e 's|http://deb.debian.org/debian|https://deb.debian.org/debian|g' /etc/apt/sources.list.d/debian.sources \
  && printf 'Acquire::EnableSrvRecords "false";\nAcquire::ForceIPv4 "true";\nAcquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAPT::Update::Error-Mode "any";\n' > /etc/apt/apt.conf.d/80-network-retries
 
 # Runtime packages needed by the image, including the FPM health check.
