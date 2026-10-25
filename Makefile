@@ -228,6 +228,7 @@ quality:
 	$(MAKE) frontend-ci-install
 	$(MAKE) frontend-ci-quality
 	$(MAKE) backend-quality
+	$(MAKE) postgres-metrics-test
 	$(MAKE) test
 	$(MAKE) production-image-security
 
@@ -403,3 +404,7 @@ production-image-security:
 	python3 scripts/tests/image_security_test.py
 	./docker/audit-image-security.sh symfony-template-security-php:local docker/php/Dockerfile prod
 	./docker/audit-image-security.sh symfony-template-security-nginx:local docker/nginx/Dockerfile prod
+
+.PHONY: postgres-metrics-test
+postgres-metrics-test:
+	sh docker/postgres/tests/statements-metrics-test.sh

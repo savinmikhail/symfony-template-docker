@@ -58,11 +58,15 @@ pg_stat_statements:
   query: |
     SELECT
       d.datname,
-      s.calls,
-      s.total_time,
-      s.mean_time
+      SUM(s.calls) AS calls,
+      SUM(s.total_exec_time) AS total_time,
+      COALESCE(
+        SUM(s.total_exec_time) / NULLIF(SUM(s.calls), 0),
+        0
+      ) AS mean_time
     FROM pg_stat_statements s
-    JOIN pg_database d ON d.oid = s.dbid;
+    JOIN pg_database d ON d.oid = s.dbid
+    GROUP BY d.datname;
   metrics:
     - datname:
         usage: "LABEL"

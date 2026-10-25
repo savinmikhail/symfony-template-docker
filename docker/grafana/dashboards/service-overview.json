@@ -474,13 +474,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "1000 * sum(rate(pg_stat_statements_seconds_total[5m])) / clamp_min(sum(rate(pg_stat_statements_calls_total[5m])), 0.001)",
+          "expr": "sum(rate(pg_stat_statements_total_time[5m])) / clamp_min(sum(rate(pg_stat_statements_calls[5m])), 0.001)",
           "legendFormat": "avg exec over 5m"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(pg_stat_statements_calls_total[5m]))",
+          "expr": "sum(rate(pg_stat_statements_calls[5m]))",
           "legendFormat": "calls/s"
         }
       ],

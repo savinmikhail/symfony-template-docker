@@ -125,6 +125,8 @@ jobs:
         run: python3 scripts/tests/deploy_registry_config_test.py
       - name: Validate persistent builder naming
         run: python3 scripts/tests/ci_builder_name_test.py
+      - name: Test PostgreSQL statistics metrics
+        run: make postgres-metrics-test
       - run: make kics-high
 
   production-images:
