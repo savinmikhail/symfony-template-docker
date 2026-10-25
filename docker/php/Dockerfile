@@ -37,6 +37,7 @@ RUN chmod +x /usr/local/bin/install-php-extensions && \
     rm -f /usr/local/bin/install-php-extensions
 
 # Default PHP-FPM configuration (can be overridden with volumes)
+COPY docker/runtime/worker-lifecycle.sh /usr/local/bin/worker-lifecycle.sh
 COPY docker/php/conf/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/conf/php-fpm.conf /usr/local/etc/php-fpm.conf
 COPY docker/php/conf/www.conf /usr/local/etc/php-fpm.d/www.conf
