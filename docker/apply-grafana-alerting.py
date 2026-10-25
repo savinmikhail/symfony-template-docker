@@ -65,6 +65,8 @@ try:
     for kind in ('application_error', 'outbound_http', 'http_5xx'):
         rule = next(r for r in after if r.get('labels', {}).get('notification_class') == kind)
         assert rule['annotations'].get('logs_query'), 'Incident link missing'
+        if kind == 'application_error':
+            assert rule['labels'].get('severity') == '{{ $labels.error_severity }}', 'Grafana expanded the severity template as an environment variable'
         assert '%!q' not in rule['annotations']['logs_query'], 'Invalid log filter'
         if kind in ('application_error', 'outbound_http'):
             assert 'default .compose_service' in rule['data'][0]['model']['expr'], 'Compose service label missing'
