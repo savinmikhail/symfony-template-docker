@@ -7,6 +7,11 @@ on:
     tags: ['*']
   workflow_dispatch:
 
+# Optional Docker build records use the artifact endpoint, which may be unavailable.
+env:
+  DOCKER_BUILD_RECORD_UPLOAD: 'false'
+  DOCKER_BUILD_SUMMARY: 'false'
+
 permissions:
   contents: read
 
@@ -190,6 +195,8 @@ jobs:
           sarif-file: scout-${{ matrix.name }}.sarif.json
       - name: Preserve Scout report
         if: always()
+        continue-on-error: true
+        timeout-minutes: 2
         uses: actions/upload-artifact@v4
         with:
           name: scout-${{ matrix.name }}
