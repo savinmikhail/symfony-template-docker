@@ -6,9 +6,10 @@ class DeploySnapshotTest(unittest.TestCase):
  def test_rejects_unverified_revision(self):
   r=subprocess.run(['bash',str(SCRIPT),'/tmp/unused','v1.2.3','main','unused','app','{}','php'],capture_output=True)
   self.assertEqual(r.returncode,64)
- def run_deploy(self,fail=False):
+ def run_deploy(self,fail=False,public_env=True):
   temp=tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup); root=Path(temp.name); runtime=root/'runtime'; runtime.mkdir(); (runtime/'app').mkdir(); (runtime/'app/.env.local').write_text('PRIVATE=preserved\n'); (runtime/'.env.local').write_text('POSTGRES_PASSWORD=synthetic\n')
-  source=root/'source'; source.mkdir(); (source/'.env').write_text('APP_ENV=prod\n'); (source/'docker-compose.yml').write_text('services:\n  php:\n    image: example\n  nginx:\n    image: example\n')
+  source=root/'source'; source.mkdir(); (source/'docker-compose.yml').write_text('services:\n  php:\n    image: example\n  nginx:\n    image: example\n')
+  if public_env:(source/'.env').write_text('APP_ENV=prod\n')
   archive=root/'source.tar.gz'
   with tarfile.open(archive,'w:gz') as out:
    for path in source.iterdir():out.add(path,arcname=path.name)
@@ -32,4 +33,11 @@ if os.environ.get('FAIL_MIGRATE')=='1' and 'run' in a:sys.exit(1)
   config=json.loads((stage/'docker-compose.tag.json').read_text());self.assertNotIn('notification-outbox-worker',config['services'])
  def test_failed_migration_rolls_back_application_images_without_touching_database(self):
   root,log,result=self.run_deploy(True);self.assertNotEqual(result.returncode,0);self.assertFalse((root/'.current-release').exists());calls=[json.loads(line) for line in log.read_text().splitlines()];self.assertTrue(any('rollback-images.json' in ' '.join(x) for x in calls));self.assertFalse(any('db' in x and ('stop' in x or 'down' in x) for x in calls))
+ def test_deploys_with_private_environment_without_public_root_dotenv(self):
+  root,log,result=self.run_deploy(public_env=False)
+  self.assertEqual(result.returncode,0,result.stderr)
+  calls=[json.loads(line) for line in log.read_text().splitlines()]
+  for call in calls:
+   for index,value in enumerate(call[:-1]):
+    if value=='--env-file':self.assertTrue(Path(call[index+1]).is_file(),call[index+1])
 if __name__=='__main__':unittest.main()

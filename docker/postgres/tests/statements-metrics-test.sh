@@ -17,7 +17,7 @@ docker run -d --rm --name "$name" --network none --tmpfs /var/lib/postgresql/dat
   -c shared_preload_libraries=pg_stat_statements >/dev/null
 ready=0
 for attempt in $(seq 1 40); do
-  if docker exec "$name" pg_isready -U postgres -d collector_fixture >/dev/null 2>&1; then ready=1; break; fi
+  if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres -d collector_fixture >/dev/null 2>&1; then ready=1; break; fi
   sleep 1
 done
 if [ "$ready" != 1 ]; then echo 'Fixture PostgreSQL did not start' >&2; exit 1; fi
