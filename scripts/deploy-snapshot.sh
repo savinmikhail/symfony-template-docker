@@ -73,7 +73,9 @@ rollback() {
  exit "$code"
 }
 trap rollback ERR
-"${compose[@]}" run --rm --no-deps php php bin/console doctrine:migrations:migrate --env=prod --no-debug --no-interaction
+php_service=${SNAPSHOT_PHP_SERVICE:-php}
+[[ "$php_service" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 64
+"${compose[@]}" run --rm --no-deps "$php_service" php bin/console doctrine:migrations:migrate --env=prod --no-debug --no-interaction
 "${compose[@]}" up -d --no-deps --no-build --pull never --wait --wait-timeout 120 "${services[@]}"
 "${compose[@]}" exec -T "${SNAPSHOT_SMOKE_SERVICE:-nginx}" wget -q -O /dev/null "${SNAPSHOT_SMOKE_URL:-http://127.0.0.1:8081/metrics}"
 # Save an exact restart command without embedding credentials.
