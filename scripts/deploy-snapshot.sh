@@ -63,12 +63,12 @@ rollback() {
  local code=$?
  trap - ERR
  echo 'Release failed; restoring previous application images (database is not rolled back).' >&2
+ "${compose[@]}" stop "${services[@]}" || true
  if [[ -n "$previous" ]]; then
   # Each successful release retains its full resolved configuration and private env.
   bash "$previous/scripts/snapshot-restart.sh" || true
  else
   old_services=(); while IFS= read -r service; do old_services+=("$service"); done < <(python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["services"]))' "$stage/rollback-images.json")
-  "${compose[@]}" stop "${services[@]}" || true
   if (( ${#old_services[@]} )); then "${compose[@]}" -f "$stage/rollback-images.json" up -d --no-deps --no-build --pull never "${old_services[@]}" || true; fi
  fi
  exit "$code"
