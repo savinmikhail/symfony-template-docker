@@ -28,7 +28,8 @@ settings={'services':{name:{'image':image,'environment':{'APP_VERSION':revision}
 (stage/'docker-compose.tag.json').write_text(json.dumps(settings))
 (stage/'deployment-services.txt').write_text('\n'.join(s for s in requested if s in defined)+'\n')
 PY
-compose=(docker compose --project-name "$project" --project-directory "$stage" --env-file "$stage/.env")
+compose=(docker compose --project-name "$project" --project-directory "$stage")
+[[ ! -f "$stage/.env" ]] || compose+=(--env-file "$stage/.env")
 [[ ! -f "$stage/.env.local" ]] || compose+=(--env-file "$stage/.env.local")
 compose+=(-f "$stage/docker-compose.yml")
 [[ ! -f "$stage/docker-compose.prod.yml" ]] || compose+=(-f "$stage/docker-compose.prod.yml")
