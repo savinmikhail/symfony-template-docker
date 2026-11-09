@@ -1,0 +1,28 @@
+version: '3'
+
+tasks:
+  fast:
+    desc: Run frontend and backend checks against the local stack
+    preconditions:
+      - sh: docker info >/dev/null 2>&1
+        msg: Start Docker and run task dev:up.
+    cmds:
+      - make frontend-ci-install
+      - make frontend-ci-quality
+      - make backend-quality
+
+  test:
+    desc: Run migrations, Doctrine checks and PHPUnit on the local test database
+    preconditions:
+      - sh: docker info >/dev/null 2>&1
+        msg: Start Docker and run task dev:up.
+    cmds:
+      - make test
+
+  full:
+    desc: Run the full local quality gate, including production image scans
+    preconditions:
+      - sh: docker info >/dev/null 2>&1
+        msg: Start Docker and run task dev:up.
+    cmds:
+      - make quality

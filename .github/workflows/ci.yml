@@ -190,6 +190,9 @@ jobs:
           image: local://ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
           only-severities: critical,high
           only-fixed: true
+          only-vex-affected: ${{ matrix.name == 'nginx' }}
+          vex-author: ${{ matrix.name == 'nginx' && 'Symfony Docker template maintainers' || '' }}
+          vex-location: ${{ matrix.name == 'nginx' && 'docker/vex/alpine-3.24-musl.vex.json' || '' }}
           exit-code: true
           write-comment: false
           sarif-file: scout-${{ matrix.name }}.sarif.json

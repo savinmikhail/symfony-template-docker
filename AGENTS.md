@@ -7,7 +7,7 @@
 - `.github/`: CI/CD and deployment workflows.
 
 ## Working Style
-- Use `Makefile` commands as the default entrypoint for build, test, and quality tasks.
+- Use `task --list` for local development and quality tasks. Task delegates to the shared Make targets in `make/`, which CI can also call directly.
 - Follow Conventional Commit style: `feat: ...`, `fix: ...`, `chore: ...`.
 - Keep commits atomic and scoped to one logical change.
 - Store secrets in `app/.env.local`; never commit real credentials.
