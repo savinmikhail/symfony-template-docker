@@ -16,7 +16,7 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|g" /etc/apk
  && printf 'timeout 60\n' > /etc/apk/config
 
 RUN apk upgrade --no-cache \
- && apk add --no-cache --upgrade 'nginx>=1.30.6-r0'
+ && apk add --no-cache --upgrade 'nginx>=1.30.6-r0' 'zlib>=1.4-r0'
 
 COPY app/public /var/www/app/public
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
