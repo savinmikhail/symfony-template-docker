@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  up:
+    desc: Start the local stack and apply migrations
+    cmds:
+      - make up
+
+  down:
+    desc: Stop the local stack
+    cmds:
+      - docker compose down

@@ -358,6 +358,10 @@ Service `k6` in `docker-compose.yml` uses the official `grafana/k6` image and mo
 
 ## Makefile commands
 
+Task 3 provides local entrypoints. Run `task --list`, `task dev:up`,
+`task quality:fast`, `task quality:test` or `task quality:full`. Task calls the
+same Make targets used by CI. The root Makefile loads the recipes from `make/`.
+
 From the repository root:
 
 - Start stack:
