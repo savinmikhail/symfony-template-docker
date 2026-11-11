@@ -12,7 +12,9 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final readonly class SafeSpanExporter implements SpanExporterInterface
 {
-    public function __construct(private SpanExporterInterface $exporter) {}
+    public function __construct(private SpanExporterInterface $exporter)
+    {
+    }
 
     public function export(iterable $batch, ?CancellationInterface $cancellation = null): FutureInterface
     {

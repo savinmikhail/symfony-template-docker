@@ -28,7 +28,9 @@ final readonly class SafeSpanData implements SpanDataInterface
         'symfony.messenger.message', 'symfony.messenger.transport',
     ];
 
-    public function __construct(private SpanDataInterface $span, private bool $filterMetadata = true) {}
+    public function __construct(private SpanDataInterface $span, private bool $filterMetadata = true)
+    {
+    }
 
     private static function withoutTraceState(SpanContextInterface $context): SpanContextInterface
     {
@@ -64,7 +66,7 @@ final readonly class SafeSpanData implements SpanDataInterface
     public function getLinks(): array
     {
         return $this->filterMetadata ? [] : array_map(
-            callback: static fn(LinkInterface $link): LinkInterface => new Link(context: self::withoutTraceState(context: $link->getSpanContext()), attributes: $link->getAttributes()),
+            callback: static fn (LinkInterface $link): LinkInterface => new Link(context: self::withoutTraceState(context: $link->getSpanContext()), attributes: $link->getAttributes()),
             array: $this->span->getLinks(),
         );
     }
