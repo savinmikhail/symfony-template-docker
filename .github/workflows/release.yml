@@ -77,6 +77,7 @@ jobs:
                 const { data: current } = await github.rest.repos.getCommit({...repo, ref: `refs/tags/${tag}`});
                 if (current.sha !== sha) throw new Error('Release tag changed while waiting for CI');
                 core.setOutput('run_id', run.id);
+                core.setOutput('attempt', run.run_attempt);
                 core.setOutput('tag', tag);
                 return;
               }
@@ -103,6 +104,21 @@ jobs:
           path: production-images
           github-token: ${{ github.token }}
           run-id: ${{ steps.candidate.outputs.run_id }}
+      - name: Confirm CI was not rerun while downloading artifacts
+        if: steps.candidate.outputs.tag != ''
+        uses: actions/github-script@v8
+        env:
+          CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
+          CI_ATTEMPT: ${{ steps.candidate.outputs.attempt }}
+        with:
+          script: |
+            const {data: run} = await github.rest.actions.getWorkflowRun({
+              ...context.repo, run_id: Number(process.env.CI_RUN_ID),
+            });
+            if (run.status !== 'completed' || run.conclusion !== 'success' ||
+                String(run.run_attempt) !== process.env.CI_ATTEMPT) {
+              throw new Error('CI changed while Release was downloading its artifacts. Rerun Release.');
+            }
       - name: Log in to the image registry
         if: steps.candidate.outputs.tag != ''
         uses: docker/login-action@v4
