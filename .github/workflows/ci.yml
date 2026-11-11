@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    tags: ['*']
+    branches: [main]
   workflow_dispatch:
 
 # Optional Docker build records use the artifact endpoint, which may be unavailable.
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && 'release-tags' || github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -137,7 +137,6 @@ jobs:
   production-images:
     # Emergency PHP source rebuilds need headroom for compile, dependencies and cache export.
     timeout-minutes: 40
-    needs: [ci-php-image, backend-quality, backend-tests, frontend-quality, infrastructure-quality]
     name: Production image (${{ matrix.name }})
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: write }
@@ -151,7 +150,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-ci-builder
-      - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -169,9 +168,9 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.version=${{ github.sha }}
           build-args: |
-            APP_VERSION=${{ github.ref_name }}
+            APP_VERSION=${{ github.sha }}
           cache-from: |
             type=gha,scope=${{ matrix.cache }}
             type=registry,ref=ghcr.io/${{ github.repository }}-${{ matrix.name }}:buildcache
@@ -207,14 +206,30 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish the scanned local image
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           IMAGE: ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }}
+        shell: bash
         run: |
           checked_id=$(docker image inspect --format '{{.Id}}' "$IMAGE")
-          docker push "$IMAGE"
+          candidate="$IMAGE-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker tag "$IMAGE" "$candidate"
+          trap 'docker image rm "$candidate" >/dev/null 2>&1 || true' EXIT
+          docker push "$candidate" | tee image-push.log
+          digest=$(sed -nE 's/^.* digest: (sha256:[0-9a-f]{64}) size: [0-9]+$/\1/p' image-push.log)
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$digest" > production-image.digest
           test "$checked_id" = "$(docker image inspect --format '{{.Id}}' "$IMAGE")"
           echo "Published Scout-checked image $IMAGE ($checked_id)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record scanned image digest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-image-${{ matrix.name }}
+          path: production-image.digest
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
       - name: Remove local production image
         if: always()
         run: docker image rm ghcr.io/${{ github.repository }}-${{ matrix.name }}:${{ github.sha }} >/dev/null 2>&1 || true

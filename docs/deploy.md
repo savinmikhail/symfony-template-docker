@@ -4,14 +4,12 @@ Production releases are tag-based and use immutable images from GitHub Container
 
 ## Release flow
 
-`make tag` creates and pushes the next patch tag. The tag starts the `CI` workflow:
-
-1. the self-contained PHP CI image is built and published once;
-2. backend quality and backend tests pull that exact image and run in parallel;
-3. frontend checks run independently;
-4. production `php` and `nginx` images build once in parallel and are published under the commit SHA;
-5. `Deploy` is the final job in the same workflow graph and starts only after all required jobs succeed;
-6. production pulls the exact SHA, runs backward-compatible migrations, switches the stateless containers, and performs an HTTP smoke check.
+A push to main runs the quality checks and builds and scans the production
+images in parallel. CI uploads the checked image digests. `make tag` creates
+and pushes the next patch tag. Release waits for successful CI for the tag's
+commit, promotes the checked images under the commit SHA and calls Deploy.
+Production pulls the exact SHA, runs backward-compatible migrations, switches
+the containers and performs an HTTP smoke check.
 
 The reusable deploy workflow can also be started manually with a previously published tag. Manual dispatch is an operator override and does not rebuild images.
 
