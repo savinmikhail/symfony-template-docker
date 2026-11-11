@@ -13,6 +13,7 @@
         "doctrine/orm": "^3.6.8",
         "doctrine/persistence": "^4.2.0",
         "monolog/monolog": "^3.10",
+        "nyholm/psr7": "^1.8",
         "open-telemetry/api": "^1.11",
         "open-telemetry/exporter-otlp": "^1.5",
         "open-telemetry/opentelemetry-auto-symfony": "~1.7.0",

@@ -31,6 +31,7 @@ $config
     ->ignoreErrorsOnPackage('symfony/dotenv', [ErrorType::PROD_DEPENDENCY_ONLY_IN_DEV])
     ->ignoreErrorsOnPackage('symfony/runtime', [ErrorType::UNUSED_DEPENDENCY])
     // Composer loads the instrumentation hooks, which require the PHP observer.
+    ->ignoreErrorsOnPackage('nyholm/psr7', [ErrorType::UNUSED_DEPENDENCY])
     ->ignoreErrorsOnPackage('open-telemetry/opentelemetry-auto-symfony', [ErrorType::UNUSED_DEPENDENCY])
     ->ignoreErrorsOnExtension('ext-opentelemetry', [ErrorType::UNUSED_DEPENDENCY])
     ->ignoreErrorsOnExtension('ext-ctype', [ErrorType::UNUSED_DEPENDENCY])
