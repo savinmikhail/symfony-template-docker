@@ -29,6 +29,7 @@ COPY --from=mlocati/php-extension-installer:2.12.0@sha256:1afade3e29cfc97362cf58
 RUN chmod +x /usr/local/bin/install-php-extensions && \
     install-php-extensions \
         intl \
+        opentelemetry-1.4.2 \
         opcache \
         pdo_pgsql \
         zip \
