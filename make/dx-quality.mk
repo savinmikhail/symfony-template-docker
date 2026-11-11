@@ -54,6 +54,7 @@ composer-audit:
 	docker compose exec -T -e COMPOSER_HOME=/tmp/composer php composer audit
 
 prod-di-validate:
+	docker compose exec -T -e OTEL_PHP_AUTOLOAD_ENABLED=true -e OTEL_TRACES_EXPORTER=otlp -e OTEL_METRICS_EXPORTER=none -e OTEL_LOGS_EXPORTER=none php php -r 'require "vendor/autoload.php"; exit(OpenTelemetry\API\Globals::tracerProvider() instanceof OpenTelemetry\SDK\Trace\TracerProvider ? 0 : 1);'
 	docker compose exec -T -e APP_ENV=prod -e APP_DEBUG=0 php php bin/console lint:container --env=prod --no-debug
 
 doctrine-schema-validate:
