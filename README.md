@@ -484,7 +484,7 @@ Prefer a newer release containing the required changes over waiting for an obsol
 
 ### Tag release supersession
 
-Tag-push CI runs share a cancelable release group. PR checks retain separate groups per PR; manual checks retain their ref group. Successful tag CI triggers the independent Release workflow, which verifies the exact checked tag SHA and skips superseded semantic-version tags. Release serializes deployment and module publication without canceling an active rollout. Existing manual deploy/rollback entry points remain available. During migration, tags without release.yml keep their original inline deploy only. The template itself has no production target.
+Pushes to `main` run checks and build and scan release images. A version tag requests Release, which waits for successful CI for the exact tagged commit and publishes the checked digests under that SHA. Release skips superseded tags and serializes production deployments. Manual deployment and rollback use existing releases. The template has no production target.
 
 ### CI matrix parallelism
 

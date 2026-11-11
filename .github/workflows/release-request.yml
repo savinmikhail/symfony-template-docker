@@ -1,0 +1,11 @@
+name: Release request
+on:
+  push:
+    tags: ['v*']
+permissions: {}
+jobs:
+  request:
+    if: github.event.deleted == false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Production release requested"

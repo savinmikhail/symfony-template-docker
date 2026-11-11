@@ -1,55 +1,88 @@
 name: Release
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [Release request]
     types: [completed]
 permissions:
   contents: read
   actions: read
   packages: write
 concurrency:
-  group: production-release-${{ github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') && 'tags' || github.run_id }}
+  group: production-release-${{ github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && 'tags' || github.run_id }}
   cancel-in-progress: false
 jobs:
   candidate:
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository
-    timeout-minutes: 10
+    permissions: {contents: read, actions: read, packages: write}
+    timeout-minutes: 65
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.candidate.outputs.tag }}
       scope: ${{ steps.scope.outputs.scope }}
     steps:
-      - name: Validate latest successful release tag
+      - name: Wait for successful CI on main for this tag
         id: candidate
         uses: actions/github-script@v8
+        timeout-minutes: 60
         with:
           script: |
-            const run = context.payload.workflow_run;
-            const tag = run.head_branch;
+            const request = context.payload.workflow_run;
+            if (request.path?.split('@')[0] !== '.github/workflows/release-request.yml') return;
+            const tag = request.head_branch;
             if (!/^v\d+\.\d+\.\d+$/.test(tag || '')) return;
             const repo = context.repo;
-            const tags = await github.paginate(github.rest.repos.listTags, {...repo, per_page: 100});
-            const releases = tags.filter(t => /^v\d+\.\d+\.\d+$/.test(t.name));
-            releases.sort((a, b) => {
-              const x = a.name.slice(1).split('.').map(BigInt);
-              const y = b.name.slice(1).split('.').map(BigInt);
-              for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i] ? -1 : 1;
-              return 0;
-            });
-            if (releases[0]?.name !== tag) {
+            async function latestTag() {
+              const tags = await github.paginate(github.rest.repos.listTags, {...repo, per_page: 100});
+              const releases = tags.filter(t => /^v\d+\.\d+\.\d+$/.test(t.name));
+              releases.sort((a, b) => {
+                const x = a.name.slice(1).split('.').map(BigInt);
+                const y = b.name.slice(1).split('.').map(BigInt);
+                for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i] ? -1 : 1;
+                return 0;
+              });
+              return releases[0]?.name;
+            }
+            if (await latestTag() !== tag) {
               core.notice(`Skipping superseded release ${tag}`);
               return;
             }
-            const commit = await github.rest.repos.getCommit({...repo, ref: `refs/tags/${tag}`});
-            if (commit.data.sha !== run.head_sha) throw new Error('Tag no longer matches checked CI revision');
-            // Old CI tags still deploy inline during migration. Never deploy them twice.
-            try {
-              await github.rest.repos.getContent({...repo, path: '.github/workflows/release.yml', ref: run.head_sha});
-            } catch (error) {
-              if (error.status === 404) return;
-              throw error;
+
+            const { data: commit } = await github.rest.repos.getCommit({...repo, ref: `refs/tags/${tag}`});
+            const sha = request.head_sha;
+            if (commit.sha !== sha) throw new Error('Release tag changed after the push');
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              ...repo, basehead: `${sha}...main`, per_page: 1,
+            });
+            if (!['identical', 'ahead'].includes(comparison.status)) {
+              throw new Error('Release tag must point to a commit on main');
             }
-            core.setOutput('tag', tag);
+
+            const deadline = Date.now() + 55 * 60_000;
+            while (Date.now() < deadline) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                ...repo, workflow_id: 'ci.yml', branch: 'main', event: 'push', head_sha: sha, per_page: 20,
+              });
+              const run = data.workflow_runs.find(candidate =>
+                candidate.head_sha === sha && candidate.head_branch === 'main' && candidate.event === 'push' &&
+                candidate.head_repository?.full_name === `${repo.owner}/${repo.repo}`
+              );
+              if (run?.status === 'completed') {
+                if (run.conclusion !== 'success') {
+                  throw new Error(`CI for ${sha} concluded ${run.conclusion}: ${run.html_url}`);
+                }
+                if (await latestTag() !== tag) {
+                  core.notice(`Skipping superseded release ${tag}`);
+                  return;
+                }
+                const { data: current } = await github.rest.repos.getCommit({...repo, ref: `refs/tags/${tag}`});
+                if (current.sha !== sha) throw new Error('Release tag changed while waiting for CI');
+                core.setOutput('run_id', run.id);
+                core.setOutput('tag', tag);
+                return;
+              }
+              await new Promise(resolve => setTimeout(resolve, 15_000));
+            }
+            throw new Error(`Timed out waiting for main CI for ${sha}`);
       - uses: actions/checkout@v6
         if: steps.candidate.outputs.tag != ''
         with:
@@ -62,6 +95,62 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.candidate.outputs.tag }}
         run: echo 'scope=full' >> "$GITHUB_OUTPUT"
+      - name: Download scanned image digests
+        if: steps.candidate.outputs.tag != ''
+        uses: actions/download-artifact@v4
+        with:
+          pattern: production-image-*
+          path: production-images
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.candidate.outputs.run_id }}
+      - name: Log in to the image registry
+        if: steps.candidate.outputs.tag != ''
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Promote scanned image digests for deploy
+        if: steps.candidate.outputs.tag != ''
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          images='php nginx'
+          refs=()
+          digests=()
+          for name in $images; do
+            expected=$(cat "production-images/production-image-$name/production-image.digest")
+            [[ "$expected" =~ ^sha256:[0-9a-f]{64}$ ]]
+            image="ghcr.io/${REPOSITORY,,}-$name"
+            docker buildx imagetools inspect "$image@$expected" >/dev/null
+            refs+=("$image")
+            digests+=("$expected")
+          done
+          for index in "${!refs[@]}"; do
+            image="${refs[$index]}"
+            expected="${digests[$index]}"
+            tag="$image:$RELEASE_SHA"
+            if listing=$(docker buildx imagetools inspect "$tag" 2>&1); then
+              actual=$(awk '$1 == "Digest:" {print $2; exit}' <<<"$listing")
+              if [[ "$actual" != "$expected" ]]; then
+                echo "::error::Refusing to change the existing image for $tag"
+                exit 1
+              fi
+              continue
+            elif [[ "$listing" != *'not found'* && "$listing" != *'manifest unknown'* ]]; then
+              printf '%s\n' "$listing" >&2
+              exit 1
+            fi
+            docker buildx imagetools create --prefer-index=false --tag "$tag" "$image@$expected"
+            actual=$(docker buildx imagetools inspect "$tag" | awk '$1 == "Digest:" {print $2; exit}')
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Digest mismatch for $tag"
+              exit 1
+            fi
+          done
+
   deploy:
     needs: candidate
     if: github.repository != 'savinmikhail/symfony-template-docker' && needs.candidate.outputs.tag != '' && needs.candidate.outputs.scope != 'frontend-only'
