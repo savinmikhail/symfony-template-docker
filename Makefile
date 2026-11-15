@@ -1,8 +1,13 @@
 SHELL := /bin/sh
 
-PROD_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.prod.yml
+PROD_PROJECT_DIRECTORY ?=
+PROD_ENV_FILES ?= $(wildcard .env .env.local)
+PROD_COMPOSE_BASE = docker compose $(if $(PROD_PROJECT_DIRECTORY),--project-directory "$(PROD_PROJECT_DIRECTORY)") $(addprefix --env-file ,$(PROD_ENV_FILES)) -f docker-compose.yml -f docker-compose.prod.yml $(addprefix -f ,$(wildcard docker-compose.host.yml))
+PROD_HOST_MONITORING = $(wildcard docker-compose.host-monitoring.yml)
+PROD_MONITORING_FILES = -f docker-compose.monitoring.yml $(addprefix -f ,$(PROD_HOST_MONITORING))
+PROD_COMPOSE = $(PROD_COMPOSE_BASE) $(if $(PROD_HOST_MONITORING),$(PROD_MONITORING_FILES))
 CI_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.ci.yml
-PROD_MONITORING_COMPOSE := COMPOSE_PROFILES=prod docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml
+PROD_MONITORING_COMPOSE = COMPOSE_PROFILES=prod $(PROD_COMPOSE_BASE) $(PROD_MONITORING_FILES)
 PROD_APP_SERVICES := php nginx
 MONITORING_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
 MONITORING_SERVICES := frontend php nginx db redis rabbitmq nginx-exporter postgres-exporter php-fpm-exporter prometheus grafana loki
