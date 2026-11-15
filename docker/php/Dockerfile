@@ -18,7 +18,9 @@ RUN apt-get update \
     tzdata \
     libfcgi-bin \
     libcurl4t64 \
+    libpq5 \
  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libcurl4t64)" ge '8.14.1-2+deb13u7' \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpq5)" ge '17.12-0+deb13u1' \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/www/app \
  && chown -R www-data:www-data /var/www/app

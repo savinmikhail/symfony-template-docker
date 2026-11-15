@@ -6,3 +6,6 @@
 
 /docker/__pycache__/
 /graphify-out/
+
+/docker-compose.host.yml
+/docker-compose.host-monitoring.yml
