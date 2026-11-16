@@ -488,15 +488,8 @@ Pushes to `main` run checks and build and scan release images. A version tag req
 
 ### CI matrix parallelism
 
-CI matrices use the non-secret GitHub Actions configuration variable
-`CI_MATRIX_MAX_PARALLEL`, falling back to **4** when it is unset. Set a positive
-integer at organization level to change all opted-in product repositories;
-a repository variable can override it. The standalone template can use a
-repository variable. This is an Actions `vars` value, not a secret or a shell
-`env` value, because matrix scheduling happens before a runner starts.
-
-The setting caps each matrix; the shared runner pool bounds total concurrency
-across workflows and repositories. CI cancellation for superseded refs and
+GitHub schedules CI matrix jobs as eligible runners become available.
+The shared runner pool bounds total concurrency across workflows and repositories. CI cancellation for superseded refs and
 production deploy/rollback/restore concurrency locks remain independent.
 
 ### Local production image security gate
