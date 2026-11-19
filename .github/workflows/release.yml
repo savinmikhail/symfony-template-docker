@@ -13,7 +13,7 @@ concurrency:
 jobs:
   candidate:
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository
-    permissions: {contents: read, actions: read, packages: write}
+    permissions: {contents: read, actions: read, checks: read, packages: write}
     timeout-minutes: 65
     runs-on: ubuntu-latest
     outputs:
@@ -96,28 +96,43 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.candidate.outputs.tag }}
         run: echo 'scope=full' >> "$GITHUB_OUTPUT"
-      - name: Download scanned image digests
+      - name: Read digests from successful image jobs
         if: steps.candidate.outputs.tag != ''
-        uses: actions/download-artifact@v4
-        with:
-          pattern: production-image-*
-          path: production-images
-          github-token: ${{ github.token }}
-          run-id: ${{ steps.candidate.outputs.run_id }}
-      - name: Confirm CI was not rerun while downloading artifacts
-        if: steps.candidate.outputs.tag != ''
+        id: digests
         uses: actions/github-script@v8
         env:
           CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
           CI_ATTEMPT: ${{ steps.candidate.outputs.attempt }}
         with:
           script: |
-            const {data: run} = await github.rest.actions.getWorkflowRun({
-              ...context.repo, run_id: Number(process.env.CI_RUN_ID),
+            const runId = Number(process.env.CI_RUN_ID);
+            const attempt = Number(process.env.CI_ATTEMPT);
+            const sha = context.payload.workflow_run.head_sha;
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+              ...context.repo, run_id: runId, attempt_number: attempt, per_page: 100,
             });
-            if (run.status !== 'completed' || run.conclusion !== 'success' ||
-                String(run.run_attempt) !== process.env.CI_ATTEMPT) {
-              throw new Error('CI changed while Release was downloading its artifacts. Rerun Release.');
+            for (const image of ['php', 'nginx']) {
+              const [job, duplicate] = jobs.filter(job => job.name === `Production image (${image})`);
+              if (!job || duplicate || job.head_sha !== sha || job.conclusion !== 'success' ||
+                  !job.steps?.some(step => step.name === 'Publish the scanned local image' && step.conclusion === 'success')) {
+                throw new Error(`Missing successful ${image} publish job in CI attempt ${attempt}. Rerun all CI jobs.`);
+              }
+              const annotations = await github.paginate(github.rest.checks.listAnnotations, {
+                ...context.repo, check_run_id: job.id, per_page: 100,
+              });
+              const [record, extra] = annotations.filter(annotation =>
+                annotation.annotation_level === 'notice' && annotation.title === 'Scanned production image digest'
+              );
+              if (!record || extra || !/^sha256:[a-f0-9]{64}$/.test(record.message)) {
+                throw new Error(`Missing or ambiguous scanned digest for ${image}.`);
+              }
+              core.setOutput(image, record.message);
+            }
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: runId});
+            if (run.conclusion !== 'success' || run.status !== 'completed' || run.run_attempt !== attempt ||
+                run.head_sha !== sha || run.event !== 'push' || run.head_branch !== 'main' ||
+                run.head_repository?.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+              throw new Error('CI changed while Release was reading the digests. Rerun Release.');
             }
       - name: Log in to the image registry
         if: steps.candidate.outputs.tag != ''
@@ -131,13 +146,18 @@ jobs:
         env:
           REPOSITORY: ${{ github.repository }}
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          PHP_DIGEST: ${{ steps.digests.outputs['php'] }}
+          NGINX_DIGEST: ${{ steps.digests.outputs['nginx'] }}
         shell: bash
         run: |
           images='php nginx'
           refs=()
           digests=()
           for name in $images; do
-            expected=$(cat "production-images/production-image-$name/production-image.digest")
+            case "$name" in
+              php) expected="$PHP_DIGEST" ;;
+              nginx) expected="$NGINX_DIGEST" ;;
+            esac
             [[ "$expected" =~ ^sha256:[0-9a-f]{64}$ ]]
             image="ghcr.io/${REPOSITORY,,}-$name"
             docker buildx imagetools inspect "$image@$expected" >/dev/null
