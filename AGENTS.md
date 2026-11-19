@@ -30,3 +30,9 @@ This repository is the reusable Symfony service baseline for the six product rep
 - When a reusable infrastructure or developer-experience improvement is discovered while working in a product repository (for example CI/CD, Docker/Compose, Make targets, quality tooling, observability, or local setup), port the generic part into this template in the same task when practical.
 - When changing a reusable baseline here, evaluate the six product repositories for rollout so new projects and active services do not drift.
 - Keep the template generic: do not copy product-specific services, secrets, image names, ports, or deployment assumptions. Keep changes and commits scoped per repository.
+
+## Production deployment
+
+- Keep one supported production deployment path. Commit and push changes to deployment, provisioning and monitoring in the owning repository, then apply them through the existing release or provisioning workflow.
+- Keep production reproducible on a replacement host using versioned configuration and documented inputs for secrets, inventory and data restoration. Use direct server access for read-only diagnostics. For an explicitly authorized incident workaround, reconcile the change into the canonical workflow and verify that it deploys from Git.
+- Keep one owner for each setting. Docker Compose defines application services. Ansible provisions hosts and applies the canonical Compose files with inventory inputs. Extend the existing path with the smallest change needed and remove superseded configuration as part of its replacement.
