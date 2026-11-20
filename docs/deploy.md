@@ -58,3 +58,12 @@ The first migration from locally built legacy images requires an operator bootst
 ## Local production-like start
 
 `make up-prod APP_IMAGE_TAG=<sha>` retains the full-stack production-like bootstrap path. It validates secrets and host ports, prepares monitoring, and may build locally. Automated releases use `make deploy-prod` instead.
+
+
+## Shared PostgreSQL restore verification
+
+For services joining a shared restore check, version the production dump source
+in the service repository. Provision only that configuration on the backup
+host. Keep the database container, database name, and dump role aligned with
+the production Compose deployment. The infrastructure repository owns the
+scheduler, private S3 credentials, and consolidated restore job.
