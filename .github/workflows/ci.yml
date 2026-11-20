@@ -34,6 +34,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start host sampling
+        run: |
+          mkdir -p "$RUNNER_TEMP/build-observation"
+          : > "$RUNNER_TEMP/build-observation/host.jsonl"
+          python3 scripts/ci/sample-build-host.py "$RUNNER_TEMP/build-observation/host.jsonl" </dev/null >/dev/null 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/build-observation/sampler.pid"
+
       - name: Build and publish CI PHP image
         uses: docker/build-push-action@v7
         with:
@@ -50,6 +57,22 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository }}-php-ci:buildcache
             type=registry,ref=ghcr.io/${{ github.repository }}-php:buildcache
           cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref=ghcr.io/{0}-php-ci:buildcache,mode=max', github.repository) || '' }}
+
+      - name: Stop host sampling
+        if: always()
+        run: |
+          pid_file="$RUNNER_TEMP/build-observation/sampler.pid"
+          if [[ -f "$pid_file" ]]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+            rm "$pid_file"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-observation-php-ci-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/build-observation/host.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
 
   backend-quality:
     timeout-minutes: 10
@@ -154,6 +177,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start host sampling
+        run: |
+          mkdir -p "$RUNNER_TEMP/build-observation"
+          : > "$RUNNER_TEMP/build-observation/host.jsonl"
+          python3 scripts/ci/sample-build-host.py "$RUNNER_TEMP/build-observation/host.jsonl" </dev/null >/dev/null 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/build-observation/sampler.pid"
+
       - name: Build production ${{ matrix.name }} image
         uses: docker/build-push-action@v7
         with:
@@ -173,6 +203,22 @@ jobs:
             type=gha,scope=${{ matrix.cache }}
             type=registry,ref=ghcr.io/${{ github.repository }}-${{ matrix.name }}:buildcache
           cache-to: ${{ github.event_name == 'push' && format('type=registry,ref=ghcr.io/{0}-{1}:buildcache,mode=max', github.repository, matrix.name) || '' }}
+
+      - name: Stop host sampling
+        if: always()
+        run: |
+          pid_file="$RUNNER_TEMP/build-observation/sampler.pid"
+          if [[ -f "$pid_file" ]]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+            rm "$pid_file"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-observation-${{ matrix.name }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/build-observation/host.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Scan fixable high and critical vulnerabilities
         uses: docker/scout-action@v1
