@@ -19,6 +19,8 @@ RUN apt-get update \
     libfcgi-bin \
     libcurl4t64 \
     libpq5 \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libc6)" ge '2.41-12+deb13u5' \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libkrb5-3)" ge '1.21.3-5+deb13u2' \
  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libcurl4t64)" ge '8.14.1-2+deb13u7' \
  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpq5)" ge '17.12-0+deb13u1' \
  && rm -rf /var/lib/apt/lists/* \
