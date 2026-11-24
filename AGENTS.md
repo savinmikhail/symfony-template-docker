@@ -36,3 +36,13 @@ This repository is the reusable Symfony service baseline for the six product rep
 - Keep one supported production deployment path. Commit and push changes to deployment, provisioning and monitoring in the owning repository, then apply them through the existing release or provisioning workflow.
 - Keep production reproducible on a replacement host using versioned configuration and documented inputs for secrets, inventory and data restoration. Use direct server access for read-only diagnostics. For an explicitly authorized incident workaround, reconcile the change into the canonical workflow and verify that it deploys from Git.
 - Keep one owner for each setting. Docker Compose defines application services. Ansible provisions hosts and applies the canonical Compose files with inventory inputs. Extend the existing path with the smallest change needed and remove superseded configuration as part of its replacement.
+
+## Production changes
+
+Production access is read-only by default. A change to production state requires
+a reviewed, merged PR deployed by the owning repository's standard release
+process, or explicit user approval for the specific direct production action.
+Use PR → review → merge → release, then verify the deployed revision and health.
+Treat SSH, SQL writes, service restarts, runtime config edits, timers, and data
+deletion as direct changes. A general request to implement a feature does not
+authorize a direct production change.
